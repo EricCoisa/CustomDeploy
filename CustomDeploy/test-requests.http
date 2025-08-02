@@ -1,0 +1,38 @@
+# Script de Teste para CustomDeploy API
+
+## 1. Primeiro, faça login para obter o token JWT
+POST http://localhost:5092/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "password"
+}
+
+## 2. Copie o token da resposta e use no endpoint de deploy
+## Substitua YOUR_JWT_TOKEN pelo token recebido
+
+POST http://localhost:5092/deploy
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN
+
+{
+  "repoUrl": "https://github.com/microsoft/vscode.git",
+  "branch": "main",
+  "buildCommand": "echo 'Build simulado' && mkdir dist && echo 'Arquivo de teste' > dist/index.html",
+  "buildOutput": "dist",
+  "targetPath": "C:\\temp\\deploy-test"
+}
+
+## Exemplo alternativo com repositório menor para teste:
+POST http://localhost:5092/deploy
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN
+
+{
+  "repoUrl": "https://github.com/octocat/Hello-World.git",
+  "branch": "master",
+  "buildCommand": "echo 'Build concluído' && mkdir build && echo '<h1>Deploy realizado com sucesso!</h1>' > build/index.html",
+  "buildOutput": "build",
+  "targetPath": "C:\\temp\\hello-world-deploy"
+}
