@@ -1,3 +1,13 @@
 /.vs
 CustomDeploy/bin/
 CustomDeploy/obj/
+
+# Arquivos de configuração com credenciais
+**/appsettings.json
+**/appsettings.local.json
+**/appsettings.*.json
+!**/appsettings.Development.json
+!**/appsettings.template.json
+
+# Logs
+*.log
