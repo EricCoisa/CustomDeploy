@@ -9,7 +9,7 @@ namespace CustomDeploy.Controllers
     /// Controller para gerenciamento e navegação do sistema de arquivos
     /// </summary>
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("[controller]")]
     [Authorize] // Requer autenticação JWT
     public class FileManagerController : ControllerBase
     {
@@ -56,7 +56,11 @@ namespace CustomDeploy.Controllers
                     _logger.LogWarning("Usuário {User} tentou acessar o sistema de arquivos sem privilégios de administrador", 
                         User.Identity?.Name);
                     
-                    return Forbid("Acesso negado: privilégios de administrador são necessários para navegar no sistema de arquivos");
+                    return StatusCode(403, new
+                    {
+                        message = "Acesso negado: privilégios de administrador são necessários para navegar no sistema de arquivos",
+                        timestamp = DateTime.UtcNow
+                    });
                 }
 
                 // Executa a navegação
@@ -116,7 +120,11 @@ namespace CustomDeploy.Controllers
                 var adminStatus = _administratorService.GetPrivilegeStatus();
                 if (!adminStatus.IsAdmin)
                 {
-                    return Forbid("Acesso negado: privilégios de administrador são necessários");
+                    return StatusCode(403, new
+                    {
+                        message = "Acesso negado: privilégios de administrador são necessários",
+                        timestamp = DateTime.UtcNow
+                    });
                 }
 
                 var item = await _fileManagerService.GetItemInfoAsync(path);
@@ -166,7 +174,11 @@ namespace CustomDeploy.Controllers
                 var adminStatus = _administratorService.GetPrivilegeStatus();
                 if (!adminStatus.IsAdmin)
                 {
-                    return Forbid("Acesso negado: privilégios de administrador são necessários");
+                    return StatusCode(403, new
+                    {
+                        message = "Acesso negado: privilégios de administrador são necessários",
+                        timestamp = DateTime.UtcNow
+                    });
                 }
 
                 var drives = _fileManagerService.GetAvailableDrives();
@@ -216,7 +228,11 @@ namespace CustomDeploy.Controllers
                 var adminStatus = _administratorService.GetPrivilegeStatus();
                 if (!adminStatus.IsAdmin)
                 {
-                    return Forbid("Acesso negado: privilégios de administrador são necessários");
+                    return StatusCode(403, new
+                    {
+                        message = "Acesso negado: privilégios de administrador são necessários",
+                        timestamp = DateTime.UtcNow
+                    });
                 }
 
                 var isValid = _fileManagerService.IsPathValidAndAccessible(path);
@@ -260,7 +276,11 @@ namespace CustomDeploy.Controllers
                 var adminStatus = _administratorService.GetPrivilegeStatus();
                 if (!adminStatus.IsAdmin)
                 {
-                    return Forbid("Acesso negado: privilégios de administrador são necessários");
+                    return StatusCode(403, new
+                    {
+                        message = "Acesso negado: privilégios de administrador são necessários",
+                        timestamp = DateTime.UtcNow
+                    });
                 }
 
                 var drives = _fileManagerService.GetAvailableDrives();

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ProtectedLayout, Modal, Button } from '../../components';
+import { ProtectedLayout, Modal, Button, FileBrowser } from '../../components';
 import {
   WelcomeCard,
   StatsGrid,
@@ -11,10 +11,17 @@ import {
 export const DashboardView: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showFileBrowser, setShowFileBrowser] = useState(false);
+  const [selectedPath, setSelectedPath] = useState<string>('');
 
   const handleConfirm = () => {
     alert('Ação confirmada!');
     setShowConfirmModal(false);
+  };
+
+  const handleFileSelect = (path: string) => {
+    setSelectedPath(path);
+    alert(`Arquivo/pasta selecionado: ${path}`);
   };
 
   return (
@@ -26,15 +33,31 @@ export const DashboardView: React.FC = () => {
           Esta é uma implementação inicial que será expandida com funcionalidades de deploy.
         </p>
         
-        {/* Exemplos de uso do Modal */}
-        <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+        {/* Exemplos de uso dos componentes */}
+        <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
           <Button onClick={() => setShowModal(true)}>
-            Abrir Modal Informativo
+            Modal Informativo
           </Button>
           <Button onClick={() => setShowConfirmModal(true)}>
-            Abrir Modal de Confirmação
+            Modal de Confirmação
+          </Button>
+          <Button onClick={() => setShowFileBrowser(true)}>
+            📁 Navegador de Arquivos
           </Button>
         </div>
+        
+        {selectedPath && (
+          <div style={{ 
+            marginTop: '1rem', 
+            padding: '0.75rem', 
+            background: '#e0f2fe', 
+            borderRadius: '0.5rem',
+            fontSize: '0.875rem'
+          }}>
+            <strong>Último arquivo selecionado:</strong><br />
+            <code style={{ wordBreak: 'break-all' }}>{selectedPath}</code>
+          </div>
+        )}
       </WelcomeCard>
 
         <StatsGrid>
@@ -131,6 +154,15 @@ export const DashboardView: React.FC = () => {
             </Button>
           </div>
         </Modal>
+
+        {/* FileBrowser de exemplo */}
+        <FileBrowser
+          isOpen={showFileBrowser}
+          onClose={() => setShowFileBrowser(false)}
+          onSelect={handleFileSelect}
+          selectType="both"
+          initialPath="C:/"
+        />
     </ProtectedLayout>
   );
 };

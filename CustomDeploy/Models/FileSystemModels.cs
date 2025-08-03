@@ -21,6 +21,11 @@ namespace CustomDeploy.Models
         public string Type { get; set; } = string.Empty;
 
         /// <summary>
+        /// Indica se o item é um diretório
+        /// </summary>
+        public bool IsDirectory => Type == "directory";
+
+        /// <summary>
         /// Tamanho do arquivo em bytes (null para diretórios)
         /// </summary>
         public long? Size { get; set; }

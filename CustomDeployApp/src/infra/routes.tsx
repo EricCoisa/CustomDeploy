@@ -2,6 +2,7 @@ import React from 'react';
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import { LoginView } from '../views/login/LoginView';
 import { DashboardView } from '../views/dashboard';
+import { TestView } from '../views/test';
 import { useAppSelector } from '../store';
 
 // Componente para proteger rotas que precisam de autenticação
@@ -56,6 +57,14 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <DashboardView />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/test',
+    element: (
+      <ProtectedRoute>
+        <TestView />
       </ProtectedRoute>
     ),
   },

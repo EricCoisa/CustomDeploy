@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import { Link, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { logoutUser } from '../../store/login/actions';
 
@@ -49,6 +50,42 @@ const HeaderSubtitle = styled.p`
 const HeaderRight = styled.div`
   display: flex;
   align-items: center;
+  gap: 1rem;
+`;
+
+const Navigation = styled.nav`
+  display: flex;
+  gap: 0.5rem;
+  margin-right: 1rem;
+  
+  @media (max-width: 768px) {
+    margin-right: 0;
+    margin-bottom: 0.5rem;
+  }
+`;
+
+const NavLink = styled(Link)<{ $isActive?: boolean }>`
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+  
+  ${props => props.$isActive ? `
+    background: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+  ` : `
+    color: #374151;
+    background: transparent;
+    
+    &:hover {
+      background: #f3f4f6;
+      border-color: #d1d5db;
+    }
+  `}
 `;
 
 const UserInfo = styled.div`
@@ -100,6 +137,7 @@ export const Header: React.FC<HeaderProps> = ({
   showUserInfo = true,
 }) => {
   const dispatch = useAppDispatch();
+  const location = useLocation();
   const { user } = useAppSelector(state => state.login);
 
   const handleLogout = () => {
@@ -116,6 +154,21 @@ export const Header: React.FC<HeaderProps> = ({
         
         {showUserInfo && (
           <HeaderRight>
+            <Navigation>
+              <NavLink 
+                to="/dashboard" 
+                $isActive={location.pathname === '/dashboard'}
+              >
+                📊 Dashboard
+              </NavLink>
+              <NavLink 
+                to="/test" 
+                $isActive={location.pathname === '/test'}
+              >
+                🧪 Testes
+              </NavLink>
+            </Navigation>
+            
             <UserInfo>
               <span>Bem-vindo, <strong>{user?.username}</strong>!</span>
               <LogoutButton onClick={handleLogout}>
