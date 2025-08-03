@@ -390,7 +390,10 @@ namespace CustomDeploy.Services
             try
             {
                 var normalizedTargetPath = Path.GetFullPath(request.TargetPath);
-                var deployName = Path.GetFileName(normalizedTargetPath);
+                
+                // Calcular o nome do deploy baseado no caminho relativo
+                var relativePath = GetRelativePathFromTargetPath(request.TargetPath);
+                var deployName = string.IsNullOrWhiteSpace(relativePath) ? Path.GetFileName(normalizedTargetPath) : relativePath;
                 
                 var metadata = new DeployMetadata
                 {
@@ -598,9 +601,12 @@ namespace CustomDeploy.Services
                     }
 
                     // Criar nova entrada de metadados
+                    var relativePath = GetRelativePathFromFullPath(normalizedPath);
+                    var deployName = string.IsNullOrWhiteSpace(relativePath) ? directoryInfo.Name : relativePath;
+                    
                     var metadata = new DeployMetadata
                     {
-                        Name = directoryInfo.Name,
+                        Name = deployName,
                         Repository = "N/A (Criado automaticamente)",
                         Branch = "N/A",
                         BuildCommand = "N/A",
@@ -834,6 +840,87 @@ namespace CustomDeploy.Services
                     _logger.LogError(ex, "Erro ao atualizar metadados do deploy: {Name}", name);
                     return (false, $"Erro interno ao atualizar metadados: {ex.Message}", null);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Converte um targetPath do request para um caminho relativo.
+        /// Ex: "carteira/api" -> "carteira/api", "C:\temp\wwwroot\carteira\api" -> "carteira/api"
+        /// </summary>
+        /// <param name="targetPath">TargetPath original do request</param>
+        /// <returns>Caminho relativo normalizado</returns>
+        private string GetRelativePathFromTargetPath(string targetPath)
+        {
+            if (string.IsNullOrWhiteSpace(targetPath))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                // Se já é um caminho relativo (como deveria ser do request original)
+                if (!Path.IsPathFullyQualified(targetPath))
+                {
+                    // Normalizar separadores e remover barras iniciais/finais
+                    var normalized = targetPath.Replace('\\', '/').Trim('/');
+                    return normalized;
+                }
+
+                // Se por algum motivo recebeu um caminho completo, extrair a parte relativa
+                var normalizedFullPath = Path.GetFullPath(targetPath);
+                var normalizedPublicationsPath = Path.GetFullPath(_publicationsPath);
+
+                if (normalizedFullPath.StartsWith(normalizedPublicationsPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    var relativePath = normalizedFullPath.Substring(normalizedPublicationsPath.Length);
+                    relativePath = relativePath.TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    relativePath = relativePath.Replace('\\', '/');
+                    return relativePath;
+                }
+
+                // Fallback: retornar apenas o nome da pasta final
+                return Path.GetFileName(targetPath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Erro ao extrair caminho relativo de: {TargetPath}", targetPath);
+                return Path.GetFileName(targetPath);
+            }
+        }
+
+        /// <summary>
+        /// Converte um caminho completo para um caminho relativo baseado no _publicationsPath.
+        /// Ex: "C:\temp\wwwroot\carteira\api" -> "carteira/api"
+        /// </summary>
+        /// <param name="fullPath">Caminho completo</param>
+        /// <returns>Caminho relativo normalizado</returns>
+        private string GetRelativePathFromFullPath(string fullPath)
+        {
+            if (string.IsNullOrWhiteSpace(fullPath))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                var normalizedFullPath = Path.GetFullPath(fullPath);
+                var normalizedPublicationsPath = Path.GetFullPath(_publicationsPath);
+
+                if (normalizedFullPath.StartsWith(normalizedPublicationsPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    var relativePath = normalizedFullPath.Substring(normalizedPublicationsPath.Length);
+                    relativePath = relativePath.TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    relativePath = relativePath.Replace('\\', '/');
+                    return relativePath;
+                }
+
+                // Fallback: retornar apenas o nome da pasta final
+                return Path.GetFileName(fullPath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Erro ao extrair caminho relativo de: {FullPath}", fullPath);
+                return Path.GetFileName(fullPath);
             }
         }
     }

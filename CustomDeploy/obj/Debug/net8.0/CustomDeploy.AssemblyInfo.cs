@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CustomDeploy")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+62caf030d64ac1db243bae29fd0b94e7a58551ed")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9d100d31d8e42609daa2de5e950e9987e969bcc5")]
 [assembly: System.Reflection.AssemblyProductAttribute("CustomDeploy")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CustomDeploy")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

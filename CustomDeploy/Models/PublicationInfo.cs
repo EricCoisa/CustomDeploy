@@ -13,5 +13,12 @@ namespace CustomDeploy.Models
         public string? Branch { get; set; }
         public string? BuildCommand { get; set; }
         public DateTime? DeployedAt { get; set; }
+
+        /// <summary>
+        /// Nome do projeto pai quando o deploy está em subdiretório.
+        /// Null se estiver no nível raiz.
+        /// Ex: "app2/api" → ParentProject = "app2", "app1" → ParentProject = null
+        /// </summary>
+        public string? ParentProject { get; set; }
     }
 }

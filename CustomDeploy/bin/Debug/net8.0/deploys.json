@@ -1,11 +1,20 @@
 ﻿[
   {
-    "name": "carteira",
+    "name": "carteira/api",
     "repository": "https://github.com/LinkedFarma/Gruppy.Solution.Front",
     "branch": "dev",
     "buildCommand": "npm i \u0026\u0026 npm run build:carteira",
+    "targetPath": "C:\\temp\\wwwroot\\carteira\\api",
+    "deployedAt": "2025-08-03T01:16:02.643143Z",
+    "exists": true
+  },
+  {
+    "name": "carteira",
+    "repository": "N/A (Criado automaticamente)",
+    "branch": "N/A",
+    "buildCommand": "N/A",
     "targetPath": "C:\\temp\\wwwroot\\carteira",
-    "deployedAt": "2025-08-03T00:38:34.5524796Z",
+    "deployedAt": "2025-08-02T22:15:53.3266152-03:00",
     "exists": true
   }
 ]

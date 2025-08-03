@@ -37,16 +37,17 @@ namespace CustomDeploy.Services
                     StringComparer.OrdinalIgnoreCase);
 
                 var publications = new List<PublicationInfo>();
-                var directories = Directory.GetDirectories(_publicationsPath);
 
-                foreach (var directory in directories)
+                // 1. Buscar apenas diretórios no nível raiz e adicionar aos metadados se necessário
+                var rootDirectories = Directory.GetDirectories(_publicationsPath);
+                foreach (var directory in rootDirectories)
                 {
                     try
                     {
                         var directoryInfo = new DirectoryInfo(directory);
                         var fullPath = directoryInfo.FullName;
-                        var sizeInBytes = await CalculateDirectorySizeAsync(directory);
-                        var sizeInMB = Math.Round(sizeInBytes / (1024.0 * 1024.0), 2);
+
+                        _logger.LogDebug("Processando diretório raiz: {Directory}", fullPath);
 
                         // Buscar metadados no dicionário
                         metadataDict.TryGetValue(fullPath, out var metadata);
@@ -54,7 +55,7 @@ namespace CustomDeploy.Services
                         // Se não há metadados para um diretório existente, criar automaticamente
                         if (metadata == null)
                         {
-                            _logger.LogInformation("Diretório encontrado sem metadados, criando automaticamente: {Path}", fullPath);
+                            _logger.LogInformation("Diretório raiz encontrado sem metadados, criando automaticamente: {Path}", fullPath);
                             var createResult = _deployService.CreateMetadataForExistingDirectory(fullPath);
                             
                             if (createResult.Success)
@@ -74,54 +75,58 @@ namespace CustomDeploy.Services
                                 _logger.LogWarning("Falha ao criar metadados automáticos: {Message}", createResult.Message);
                             }
                         }
-
-                        var publication = new PublicationInfo
-                        {
-                            Name = directoryInfo.Name,
-                            FullPath = fullPath,
-                            LastModified = directoryInfo.LastWriteTime,
-                            SizeMB = sizeInMB,
-                            Exists = metadata?.Exists ?? true, // Se não há metadados, assume que existe (pasta física existe)
-                            Repository = metadata?.Repository,
-                            Branch = metadata?.Branch,
-                            BuildCommand = metadata?.BuildCommand,
-                            DeployedAt = metadata?.DeployedAt
-                        };
-
-                        publications.Add(publication);
-                        _logger.LogDebug("Publicação encontrada: {Name} - {SizeMB} MB - Exists: {Exists}", 
-                            publication.Name, publication.SizeMB, publication.Exists);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Erro ao processar diretório: {Directory}", directory);
+                        _logger.LogWarning(ex, "Erro ao processar diretório raiz: {Directory}", directory);
                     }
                 }
 
-                // Incluir deploys que não existem mais fisicamente
-                foreach (var metadata in allDeployMetadata.Where(m => !m.Exists))
+                // 2. Recarregar todos os metadados após possíveis criações automáticas
+                allDeployMetadata = _deployService.GetAllDeployMetadataWithExistsCheck();
+
+                // 3. Criar PublicationInfo para todos os deploys dos metadados
+                foreach (var metadata in allDeployMetadata)
                 {
-                    var deployName = metadata.Name;
-                    
-                    // Verificar se já foi adicionado (caso o diretório ainda exista)
-                    if (!publications.Any(p => string.Equals(p.Name, deployName, StringComparison.OrdinalIgnoreCase)))
+                    try
                     {
-                        _logger.LogWarning("Deploy registrado mas diretório não existe: {TargetPath}", metadata.TargetPath);
+                        var fullPath = Path.GetFullPath(metadata.TargetPath);
+                        var directoryExists = Directory.Exists(fullPath);
                         
-                        var offlinePublication = new PublicationInfo
+                        // Calcular tamanho se o diretório existir fisicamente
+                        double sizeInMB = 0;
+                        DateTime lastModified = metadata.DeployedAt;
+                        
+                        if (directoryExists)
                         {
-                            Name = $"{deployName} (Removido)",
-                            FullPath = metadata.TargetPath,
-                            LastModified = metadata.DeployedAt,
-                            SizeMB = 0,
-                            Exists = false, // Explicitamente marcado como não existente
+                            var directoryInfo = new DirectoryInfo(fullPath);
+                            var sizeInBytes = await CalculateDirectorySizeAsync(fullPath);
+                            sizeInMB = Math.Round(sizeInBytes / (1024.0 * 1024.0), 2);
+                            lastModified = directoryInfo.LastWriteTime;
+                        }
+
+                        var publication = new PublicationInfo
+                        {
+                            Name = metadata.Exists && directoryExists ? metadata.Name : $"{metadata.Name} (Removido)",
+                            FullPath = fullPath,
+                            LastModified = lastModified,
+                            SizeMB = sizeInMB,
+                            Exists = metadata.Exists && directoryExists,
                             Repository = metadata.Repository,
                             Branch = metadata.Branch,
                             BuildCommand = metadata.BuildCommand,
-                            DeployedAt = metadata.DeployedAt
+                            DeployedAt = metadata.DeployedAt,
+                            ParentProject = ExtractParentProject(GetRelativePathFromFull(metadata.TargetPath))
                         };
+
+                        publications.Add(publication);
                         
-                        publications.Add(offlinePublication);
+                        _logger.LogDebug("Publicação dos metadados: {Name} - {SizeMB} MB - Exists: {Exists} - TargetPath: {TargetPath}", 
+                            publication.Name, publication.SizeMB, publication.Exists, metadata.TargetPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Erro ao processar metadata do deploy: {Name}", metadata.Name);
                     }
                 }
 
@@ -130,8 +135,8 @@ namespace CustomDeploy.Services
 
                 _logger.LogInformation("Encontradas {Count} publicações ({ActiveCount} ativas, {InactiveCount} removidas)", 
                     publications.Count,
-                    publications.Count(p => !p.Name.Contains("(Removido)")),
-                    publications.Count(p => p.Name.Contains("(Removido)")));
+                    publications.Count(p => p.Exists),
+                    publications.Count(p => !p.Exists));
                     
                 return publications;
             }
@@ -247,6 +252,92 @@ namespace CustomDeploy.Services
             {
                 _logger.LogError(ex, "Erro ao buscar publicação: {Name}", name);
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Converte um caminho completo para um caminho relativo baseado no _publicationsPath.
+        /// Ex: "C:\temp\wwwroot\carteira\api" -> "carteira/api"
+        /// </summary>
+        /// <param name="fullPath">Caminho completo</param>
+        /// <returns>Caminho relativo ou o caminho original se não for possível converter</returns>
+        private string GetRelativePathFromFull(string fullPath)
+        {
+            if (string.IsNullOrWhiteSpace(fullPath))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                var normalizedFullPath = Path.GetFullPath(fullPath);
+                var normalizedPublicationsPath = Path.GetFullPath(_publicationsPath);
+
+                // Verificar se o caminho está dentro do diretório de publicações
+                if (normalizedFullPath.StartsWith(normalizedPublicationsPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Extrair a parte relativa
+                    var relativePath = normalizedFullPath.Substring(normalizedPublicationsPath.Length);
+                    
+                    // Remover separadores iniciais
+                    relativePath = relativePath.TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    
+                    // Normalizar separadores para /
+                    relativePath = relativePath.Replace('\\', '/');
+                    
+                    return relativePath;
+                }
+
+                _logger.LogWarning("Caminho não está dentro do diretório de publicações: {FullPath}", fullPath);
+                return fullPath; // Retorna o original se não conseguir converter
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Erro ao converter caminho completo para relativo: {FullPath}", fullPath);
+                return fullPath; // Retorna o original em caso de erro
+            }
+        }
+
+        /// <summary>
+        /// Extrai o nome do projeto pai baseado na targetPath.
+        /// Retorna null se estiver no nível raiz, ou o nome da pasta pai se estiver em subdiretório.
+        /// </summary>
+        /// <param name="targetPath">Caminho do deploy (ex: "app2/api", "app1")</param>
+        /// <returns>Nome do projeto pai ou null</returns>
+        private string? ExtractParentProject(string targetPath)
+        {
+            if (string.IsNullOrWhiteSpace(targetPath))
+            {
+                return null;
+            }
+
+            try
+            {
+                // Normalizar separadores de caminho para / para consistência
+                var normalizedPath = targetPath.Replace('\\', '/');
+                
+                // Remover barras iniciais e finais
+                normalizedPath = normalizedPath.Trim('/');
+                
+                // Se não há barras, está no nível raiz
+                if (!normalizedPath.Contains('/'))
+                {
+                    return null;
+                }
+                
+                // Extrair a primeira parte (projeto pai)
+                var pathParts = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                if (pathParts.Length > 1)
+                {
+                    return pathParts[0];
+                }
+                
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Erro ao extrair projeto pai de: {TargetPath}", targetPath);
+                return null;
             }
         }
     }

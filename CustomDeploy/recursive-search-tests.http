@@ -1,0 +1,115 @@
+### Teste de Busca Recursiva de Publicações
+
+# Obter token
+POST https://localhost:7071/auth/login
+Content-Type: application/json
+
+{
+    "username": "admin",
+    "password": "password"
+}
+
+###
+
+# Listar todas as publicações (agora com busca recursiva)
+GET https://localhost:7071/deploy/publications
+Authorization: Bearer {{auth_token}}
+
+###
+
+# Criar deploy no nível raiz
+POST https://localhost:7071/deploy
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "repoUrl": "https://github.com/microsoft/vscode-website.git",
+    "branch": "main",
+    "buildCommand": "echo 'Build root level'",
+    "buildOutput": ".",
+    "targetPath": "root-app"
+}
+
+###
+
+# Criar deploy nível 1 (dentro de projeto pai)
+POST https://localhost:7071/deploy
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "repoUrl": "https://github.com/facebook/react.git",
+    "branch": "main",
+    "buildCommand": "echo 'Build level 1'",
+    "buildOutput": ".",
+    "targetPath": "ecommerce/api"
+}
+
+###
+
+# Criar outro deploy nível 1 (mesmo projeto pai)
+POST https://localhost:7071/deploy
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "repoUrl": "https://github.com/vercel/next.js.git",
+    "branch": "canary",
+    "buildCommand": "echo 'Build frontend'",
+    "buildOutput": ".",
+    "targetPath": "ecommerce/frontend"
+}
+
+###
+
+# Criar deploy nível 2 (aninhado profundo)
+POST https://localhost:7071/deploy
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "repoUrl": "https://github.com/nodejs/node.git",
+    "branch": "main",
+    "buildCommand": "echo 'Build deep nested'",
+    "buildOutput": ".",
+    "targetPath": "ecommerce/admin/panel"
+}
+
+###
+
+# Criar deploy com múltiplos níveis
+POST https://localhost:7071/deploy
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "repoUrl": "https://github.com/angular/angular.git",
+    "branch": "main",
+    "buildCommand": "echo 'Build very deep'",
+    "buildOutput": ".",
+    "targetPath": "microservices/payment/api/v2"
+}
+
+###
+
+# Verificar todas as publicações após criação (busca recursiva)
+GET https://localhost:7071/deploy/publications
+Authorization: Bearer {{auth_token}}
+
+###
+
+# Obter estatísticas (deve incluir todos os níveis)
+GET https://localhost:7071/deploy/publications/stats
+Authorization: Bearer {{auth_token}}
+
+###
+
+# Testar deploy individual aninhado
+GET https://localhost:7071/deploy/publications/ecommerce-admin-panel
+Authorization: Bearer {{auth_token}}
+
+###
+
+# Verificar metadados de deploy aninhado
+GET https://localhost:7071/deploy/publications/ecommerce-admin-panel/metadata
+Authorization: Bearer {{auth_token}}

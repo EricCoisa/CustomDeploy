@@ -68,11 +68,14 @@ namespace CustomDeploy.Controllers
                     return BadRequest(new { message = "Nome da publicação é obrigatório" });
                 }
 
-                var publication = await _publicationService.GetPublicationByNameAsync(name);
+                // Decodificar URL para suportar nomes com barras (ex: carteira%2Fapi -> carteira/api)
+                var decodedName = Uri.UnescapeDataString(name);
+
+                var publication = await _publicationService.GetPublicationByNameAsync(decodedName);
 
                 if (publication == null)
                 {
-                    return NotFound(new { message = $"Publicação '{name}' não encontrada" });
+                    return NotFound(new { message = $"Publicação '{decodedName}' não encontrada" });
                 }
 
                 var response = new
@@ -155,7 +158,11 @@ namespace CustomDeploy.Controllers
                     return BadRequest(new { message = "Nome da publicação é obrigatório" });
                 }
 
-                var result = _deployService.DeletePublicationCompletely(name);
+                // Decodificar URL para suportar nomes com barras (ex: carteira%2Fapi -> carteira/api)
+                var decodedName = Uri.UnescapeDataString(name);
+                _logger.LogInformation("Nome decodificado: {DecodedName}", decodedName);
+
+                var result = _deployService.DeletePublicationCompletely(decodedName);
 
                 if (!result.Success)
                 {
@@ -165,7 +172,7 @@ namespace CustomDeploy.Controllers
                 var response = new
                 {
                     message = result.Message,
-                    name = name,
+                    name = decodedName,
                     timestamp = DateTime.UtcNow
                 };
 
@@ -195,7 +202,11 @@ namespace CustomDeploy.Controllers
                     return BadRequest(new { message = "Nome da publicação é obrigatório" });
                 }
 
-                var result = _deployService.RemoveDeployMetadata(name);
+                // Decodificar URL para suportar nomes com barras (ex: carteira%2Fapi -> carteira/api)
+                var decodedName = Uri.UnescapeDataString(name);
+                _logger.LogInformation("Nome decodificado: {DecodedName}", decodedName);
+
+                var result = _deployService.RemoveDeployMetadata(decodedName);
 
                 if (!result.Success)
                 {
@@ -205,7 +216,7 @@ namespace CustomDeploy.Controllers
                 var response = new
                 {
                     message = $"Metadados removidos (pasta física mantida): {result.Message}",
-                    name = name,
+                    name = decodedName,
                     timestamp = DateTime.UtcNow
                 };
 
@@ -235,7 +246,11 @@ namespace CustomDeploy.Controllers
                     return BadRequest(new { message = "Nome do deploy é obrigatório" });
                 }
 
-                var result = _deployService.GetDeployMetadata(name);
+                // Decodificar URL para suportar nomes com barras (ex: carteira%2Fapi -> carteira/api)
+                var decodedName = Uri.UnescapeDataString(name);
+                _logger.LogInformation("Nome decodificado: {DecodedName}", decodedName);
+
+                var result = _deployService.GetDeployMetadata(decodedName);
 
                 if (!result.Success)
                 {
@@ -292,8 +307,12 @@ namespace CustomDeploy.Controllers
                     });
                 }
 
+                // Decodificar URL para suportar nomes com barras (ex: carteira%2Fapi -> carteira/api)
+                var decodedName = Uri.UnescapeDataString(name);
+                _logger.LogInformation("Nome decodificado: {DecodedName}", decodedName);
+
                 var result = _deployService.UpdateDeployMetadata(
-                    name, 
+                    decodedName, 
                     request.Repository, 
                     request.Branch, 
                     request.BuildCommand);
