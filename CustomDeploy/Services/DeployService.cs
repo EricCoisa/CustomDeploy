@@ -8,14 +8,16 @@ namespace CustomDeploy.Services
     public class DeployService
     {
         private readonly ILogger<DeployService> _logger;
+        private readonly IISManagementService _iisManagementService;
         private readonly string _workingDirectory;
         private readonly string _publicationsPath;
         private readonly string _deploysJsonPath;
         private static readonly object _deploysFileLock = new object();
 
-        public DeployService(ILogger<DeployService> logger, IConfiguration configuration)
+        public DeployService(ILogger<DeployService> logger, IISManagementService iisManagementService, IConfiguration configuration)
         {
             _logger = logger;
+            _iisManagementService = iisManagementService;
             _workingDirectory = configuration.GetValue<string>("DeploySettings:WorkingDirectory") 
                 ?? Path.Combine(Path.GetTempPath(), "CustomDeploy");
             _publicationsPath = configuration.GetValue<string>("DeploySettings:PublicationsPath") 
@@ -31,49 +33,168 @@ namespace CustomDeploy.Services
             }
         }
 
-        public async Task<(bool Success, string Message)> ExecuteDeployAsync(DeployRequest request)
+        public async Task<(bool Success, string Message, object? DeployDetails)> ExecuteDeployAsync(DeployRequest request)
         {
             var stopwatch = Stopwatch.StartNew();
             var repoName = GetRepoNameFromUrl(request.RepoUrl);
             var repoPath = Path.Combine(_workingDirectory, repoName);
+            var deployDetails = new
+            {
+                siteInfo = (object?)null,
+                applicationInfo = (object?)null,
+                finalPath = string.Empty,
+                isIISApplication = false,
+                warnings = new List<string>(),
+                parsedSite = string.Empty,
+                parsedApplication = string.Empty
+            };
 
             try
             {
-                _logger.LogInformation("Iniciando deploy para repositório: {RepoUrl}", request.RepoUrl);
+                _logger.LogInformation("Iniciando deploy para repositório: {RepoUrl} no site IIS: {IisSiteName}", 
+                    request.RepoUrl, request.IisSiteName);
 
-                // 0. Validar e resolver o targetPath
-                var resolvedTargetPath = ValidateAndResolveTargetPath(request.TargetPath);
-                if (resolvedTargetPath == null)
+                // 1. Parsear site e aplicação
+                var (siteName, applicationPath) = ParseSiteAndApplication(request.IisSiteName, request.ApplicationPath);
+                _logger.LogInformation("Site parseado: {SiteName}, Aplicação: {ApplicationPath}", 
+                    siteName, applicationPath ?? "nenhuma");
+
+                deployDetails = deployDetails with 
+                { 
+                    parsedSite = siteName,
+                    parsedApplication = applicationPath ?? string.Empty
+                };
+
+                // 2. Verificar se o site IIS existe e obter informações
+                var siteResult = await _iisManagementService.GetSiteInfoAsync(siteName);
+                if (!siteResult.Success)
                 {
-                    return (false, $"TargetPath inválido. Deve ser um caminho relativo dentro de {_publicationsPath}");
+                    return (false, $"Site não encontrado no IIS: {siteName}. {siteResult.Message}", deployDetails);
                 }
 
-                // Atualizar o request com o caminho resolvido
-                request.TargetPath = resolvedTargetPath;
+                var sitePhysicalPath = siteResult.PhysicalPath;
+                _logger.LogInformation("Site IIS encontrado: {SiteName}, Caminho físico: {PhysicalPath}", 
+                    siteName, sitePhysicalPath);
 
-                // 1. Clonar ou atualizar repositório
+                // 3. Determinar caminho final baseado na aplicação parseada
+                string finalTargetPath;
+                if (!string.IsNullOrWhiteSpace(applicationPath))
+                {
+                    // Se há uma aplicação parseada (ex: carteira de gruppy/carteira), usar ela como base
+                    finalTargetPath = Path.Combine(sitePhysicalPath, applicationPath);
+                    
+                    // Só adicionar targetPath se for diferente da applicationPath (evitar duplicação)
+                    if (!string.IsNullOrWhiteSpace(request.TargetPath) && 
+                        !string.Equals(request.TargetPath, applicationPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        finalTargetPath = Path.Combine(finalTargetPath, request.TargetPath);
+                        _logger.LogInformation("Combinando caminhos: {ApplicationPath} + {TargetPath}", 
+                            applicationPath, request.TargetPath);
+                    }
+                    else if (string.Equals(request.TargetPath, applicationPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogInformation("TargetPath igual ao ApplicationPath, usando apenas: {Path}", 
+                            applicationPath);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("Usando apenas ApplicationPath: {Path}", applicationPath);
+                    }
+                }
+                else
+                {
+                    // Comportamento original: site + targetPath
+                    finalTargetPath = Path.Combine(sitePhysicalPath, request.TargetPath ?? string.Empty);
+                }
+
+                deployDetails = deployDetails with 
+                { 
+                    siteInfo = siteResult.SiteInfo,
+                    finalPath = finalTargetPath
+                };
+
+                // 4. Verificar se a aplicação parseada existe no IIS
+                if (!string.IsNullOrWhiteSpace(applicationPath))
+                {
+                    var appResult = await _iisManagementService.CheckApplicationExistsAsync(siteName, applicationPath);
+                    if (appResult.Success)
+                    {
+                        if (appResult.ApplicationExists)
+                        {
+                            _logger.LogInformation("Aplicação IIS encontrada: {SiteName}/{ApplicationPath}", 
+                                siteName, applicationPath);
+                            deployDetails = deployDetails with 
+                            { 
+                                applicationInfo = appResult.ApplicationInfo,
+                                isIISApplication = true
+                            };
+                        }
+                        else
+                        {
+                            var warning = $"Aplicação '{applicationPath}' não existe como subaplicação no IIS, será tratada como pasta.";
+                            _logger.LogWarning(warning);
+                            var warnings = deployDetails.warnings.ToList();
+                            warnings.Add(warning);
+                            deployDetails = deployDetails with { warnings = warnings };
+                        }
+                    }
+                    else
+                    {
+                        var warning = $"Erro ao verificar aplicação IIS: {appResult.Message}";
+                        _logger.LogWarning(warning);
+                        var warnings = deployDetails.warnings.ToList();
+                        warnings.Add(warning);
+                        deployDetails = deployDetails with { warnings = warnings };
+                    }
+                }
+
+                // 5. Verificar targetPath adicional como aplicação IIS (se diferente da aplicação principal)
+                if (!string.IsNullOrWhiteSpace(request.TargetPath) && request.TargetPath != applicationPath)
+                {
+                    var targetCheckPath = !string.IsNullOrWhiteSpace(applicationPath) 
+                        ? $"{applicationPath}/{request.TargetPath}"
+                        : request.TargetPath;
+                        
+                    var appResult = await _iisManagementService.CheckApplicationExistsAsync(siteName, targetCheckPath);
+                    if (appResult.Success && appResult.ApplicationExists)
+                    {
+                        _logger.LogInformation("Aplicação IIS encontrada no targetPath: {SiteName}/{TargetPath}", 
+                            siteName, targetCheckPath);
+                        // Atualizar apenas se não já identificamos uma aplicação
+                        if (!deployDetails.isIISApplication)
+                        {
+                            deployDetails = deployDetails with 
+                            { 
+                                applicationInfo = appResult.ApplicationInfo,
+                                isIISApplication = true
+                            };
+                        }
+                    }
+                }
+
+                // 6. Clonar ou atualizar repositório
                 var gitResult = await CloneOrUpdateRepositoryAsync(request.RepoUrl, request.Branch, repoPath);
                 if (!gitResult.Success)
                 {
-                    return (false, $"Erro no Git: {gitResult.Message}");
+                    return (false, $"Erro no Git: {gitResult.Message}", deployDetails);
                 }
 
-                // 2. Executar comando de build
+                // 7. Executar comando de build
                 var buildResult = await ExecuteBuildCommandAsync(request.BuildCommand, repoPath);
                 if (!buildResult.Success)
                 {
-                    return (false, $"Erro no build: {buildResult.Message}");
+                    return (false, $"Erro no build: {buildResult.Message}", deployDetails);
                 }
 
-                // 3. Copiar arquivos para destino
-                var copyResult = await CopyBuildOutputAsync(repoPath, request.BuildOutput, request.TargetPath);
+                // 8. Copiar arquivos para destino (usando o caminho do IIS)
+                var copyResult = await CopyBuildOutputToIISPathAsync(repoPath, request.BuildOutput, finalTargetPath);
                 if (!copyResult.Success)
                 {
-                    return (false, $"Erro na cópia: {copyResult.Message}");
+                    return (false, $"Erro na cópia: {copyResult.Message}", deployDetails);
                 }
 
-                // 4. Salvar metadados do deploy
-                var metadataResult = SaveDeployMetadata(request);
+                // 9. Salvar metadados do deploy
+                var metadataResult = SaveDeployMetadata(request, finalTargetPath);
                 if (!metadataResult.Success)
                 {
                     _logger.LogWarning("Falha ao salvar metadados: {Message}", metadataResult.Message);
@@ -84,13 +205,13 @@ namespace CustomDeploy.Services
                 var successMessage = $"Deploy concluído com sucesso em {stopwatch.Elapsed.TotalSeconds:F2} segundos";
                 _logger.LogInformation(successMessage);
                 
-                return (true, successMessage);
+                return (true, successMessage, deployDetails);
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
                 _logger.LogError(ex, "Erro durante o deploy");
-                return (false, $"Erro interno: {ex.Message}");
+                return (false, $"Erro interno: {ex.Message}", deployDetails);
             }
         }
 
@@ -334,6 +455,50 @@ namespace CustomDeploy.Services
             }
         }
 
+        private async Task<(bool Success, string Message)> CopyBuildOutputToIISPathAsync(string repoPath, string buildOutput, string targetPath)
+        {
+            try
+            {
+                var sourcePath = Path.Combine(repoPath, buildOutput);
+                
+                if (!Directory.Exists(sourcePath))
+                {
+                    return (false, $"Diretório de build não encontrado: {sourcePath}");
+                }
+
+                _logger.LogInformation("Copiando arquivos de {SourcePath} para caminho IIS: {TargetPath}", sourcePath, targetPath);
+
+                // Validar se o diretório pai existe (site físico)
+                var parentPath = Path.GetDirectoryName(targetPath);
+                if (!Directory.Exists(parentPath))
+                {
+                    return (false, $"Diretório do site IIS não encontrado: {parentPath}");
+                }
+
+                // Limpar diretório de destino se existir
+                if (Directory.Exists(targetPath))
+                {
+                    _logger.LogInformation("Limpando diretório de destino IIS: {TargetPath}", targetPath);
+                    Directory.Delete(targetPath, true);
+                    await Task.Delay(100); // Pequeno delay para garantir que o diretório foi deletado
+                }
+
+                // Criar diretório de destino
+                Directory.CreateDirectory(targetPath);
+
+                // Copiar recursivamente
+                await CopyDirectoryAsync(sourcePath, targetPath);
+
+                _logger.LogInformation("Deploy para IIS concluído: {TargetPath}", targetPath);
+                return (true, $"Arquivos copiados com sucesso para {targetPath}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro durante cópia dos arquivos para IIS");
+                return (false, ex.Message);
+            }
+        }
+
         private async Task CopyDirectoryAsync(string sourceDir, string targetDir)
         {
             var dir = new DirectoryInfo(sourceDir);
@@ -426,6 +591,50 @@ namespace CustomDeploy.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao salvar metadados do deploy no arquivo centralizado");
+                return (false, ex.Message);
+            }
+        }
+
+        private (bool Success, string Message) SaveDeployMetadata(DeployRequest request, string finalTargetPath)
+        {
+            try
+            {
+                var normalizedTargetPath = Path.GetFullPath(finalTargetPath);
+                
+                // Para deploys IIS, usar o nome do site + targetPath como nome do deploy
+                var deployName = $"{request.IisSiteName}/{request.TargetPath}";
+                
+                var metadata = new DeployMetadata
+                {
+                    Name = deployName,
+                    Repository = request.RepoUrl,
+                    Branch = request.Branch,
+                    BuildCommand = request.BuildCommand,
+                    TargetPath = normalizedTargetPath,
+                    DeployedAt = DateTime.UtcNow
+                };
+
+                // Thread-safe operation para ler/escrever o arquivo de metadados
+                lock (_deploysFileLock)
+                {
+                    var deploysList = LoadAllDeployMetadata();
+                    
+                    // Remover entrada existente se houver (baseado no targetPath)
+                    deploysList.RemoveAll(d => string.Equals(d.TargetPath, normalizedTargetPath, StringComparison.OrdinalIgnoreCase));
+                    
+                    // Adicionar nova entrada
+                    deploysList.Add(metadata);
+                    
+                    // Salvar de volta
+                    SaveAllDeployMetadata(deploysList);
+                }
+
+                _logger.LogInformation("Metadados do deploy IIS salvos: {DeployName} -> {TargetPath}", deployName, normalizedTargetPath);
+                return (true, "Metadados do deploy IIS salvos com sucesso");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao salvar metadados do deploy IIS");
                 return (false, ex.Message);
             }
         }
@@ -922,6 +1131,34 @@ namespace CustomDeploy.Services
                 _logger.LogWarning(ex, "Erro ao extrair caminho relativo de: {FullPath}", fullPath);
                 return Path.GetFileName(fullPath);
             }
+        }
+
+        /// <summary>
+        /// Parseia o nome do site e aplicação baseado na sintaxe "site/aplicacao" ou campos separados
+        /// </summary>
+        /// <param name="iisSiteName">Nome do site IIS que pode conter "/" para separar site/aplicação</param>
+        /// <param name="applicationPath">Caminho específico da aplicação (opcional)</param>
+        /// <returns>Tupla com (nome_do_site, caminho_da_aplicacao)</returns>
+        private (string siteName, string? applicationPath) ParseSiteAndApplication(string iisSiteName, string? applicationPath)
+        {
+            // Se applicationPath foi especificado explicitamente, usar ele
+            if (!string.IsNullOrWhiteSpace(applicationPath))
+            {
+                return (iisSiteName, applicationPath);
+            }
+
+            // Se não, verificar se iisSiteName contém "/"
+            if (iisSiteName.Contains('/'))
+            {
+                var parts = iisSiteName.Split('/', 2, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length == 2)
+                {
+                    return (parts[0], parts[1]);
+                }
+            }
+
+            // Caso padrão: apenas site, sem aplicação
+            return (iisSiteName, null);
         }
     }
 }

@@ -571,5 +571,490 @@ namespace CustomDeploy.Services
                 return (false, ex.Message, string.Empty);
             }
         }
+
+        /// <summary>
+        /// Obtém informações de um site IIS pelo nome
+        /// </summary>
+        /// <param name="siteName">Nome do site</param>
+        /// <returns>Resultado com informações do site</returns>
+        public async Task<(bool Success, string Message, string PhysicalPath, object? SiteInfo)> GetSiteInfoAsync(string siteName)
+        {
+            _logger.LogInformation("Obtendo informações do site IIS: {SiteName}", siteName);
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(siteName))
+                {
+                    return (false, "Nome do site é obrigatório", string.Empty, null);
+                }
+
+                // Criar script PowerShell para obter informações do site
+                var tempScriptPath = Path.Combine(Path.GetTempPath(), $"get_site_info_{Guid.NewGuid()}.ps1");
+                var powershellScript = $@"
+$site = Get-IISSite -Name '{siteName}' -ErrorAction SilentlyContinue
+
+if (-not $site) {{
+    Write-Output ""SITE_NOT_FOUND""
+    exit 1
+}}
+
+$physicalPath = 'Path Not Available'
+$state = [int]$site.State
+$id = [int]$site.Id
+
+try {{
+    $rootApp = $site.Applications | Where-Object {{ $_.Path -eq '/' }} | Select-Object -First 1
+    if ($rootApp) {{
+        $rootVDir = $rootApp.VirtualDirectories | Where-Object {{ $_.Path -eq '/' }} | Select-Object -First 1
+        if ($rootVDir -and $rootVDir.PhysicalPath) {{
+            $physicalPath = $rootVDir.PhysicalPath
+        }}
+    }}
+}} catch {{
+    # Keep default value
+}}
+
+$siteInfo = [PSCustomObject]@{{
+    Name = $site.Name
+    Id = $id
+    State = $state
+    PhysicalPath = $physicalPath
+    Applications = @($site.Applications | ForEach-Object {{ $_.Path }})
+    Bindings = @($site.Bindings | ForEach-Object {{ ""[$($_.Protocol)] $($_.BindingInformation)"" }})
+}}
+
+$siteInfo | ConvertTo-Json -Depth 2 -Compress
+";
+
+                try
+                {
+                    // Escrever script temporário
+                    await File.WriteAllTextAsync(tempScriptPath, powershellScript);
+                    
+                    // Executar script
+                    var siteInfoResult = await ExecuteCommandAsync("powershell", 
+                        $"-ExecutionPolicy Bypass -File \"{tempScriptPath}\"");
+
+                    if (!siteInfoResult.Success)
+                    {
+                        return (false, $"Erro ao obter informações do site: {siteInfoResult.Message}", string.Empty, null);
+                    }
+
+                    if (string.IsNullOrWhiteSpace(siteInfoResult.Output))
+                    {
+                        return (false, $"Site '{siteName}' não encontrado no IIS", string.Empty, null);
+                    }
+
+                    if (siteInfoResult.Output.Contains("SITE_NOT_FOUND"))
+                    {
+                        return (false, $"Site '{siteName}' não encontrado no IIS", string.Empty, null);
+                    }
+
+                    try
+                    {
+                        var siteJson = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(siteInfoResult.Output);
+                        
+                        var physicalPath = siteJson.TryGetProperty("PhysicalPath", out var pathProp) ? 
+                            pathProp.GetString() ?? string.Empty : string.Empty;
+
+                        if (string.IsNullOrEmpty(physicalPath) || physicalPath == "Path Not Available")
+                        {
+                            return (false, $"Não foi possível obter o caminho físico do site '{siteName}'", string.Empty, null);
+                        }
+
+                        var siteInfo = new
+                        {
+                            name = siteJson.TryGetProperty("Name", out var nameProp) ? nameProp.GetString() : siteName,
+                            id = siteJson.TryGetProperty("Id", out var idProp) ? idProp.GetInt32() : 0,
+                            state = siteJson.TryGetProperty("State", out var stateProp) ? stateProp.GetInt32() : 0,
+                            physicalPath = physicalPath,
+                            applications = siteJson.TryGetProperty("Applications", out var appsProp) && appsProp.ValueKind == System.Text.Json.JsonValueKind.Array ?
+                                appsProp.EnumerateArray().Select(app => app.GetString() ?? "").Where(s => !string.IsNullOrEmpty(s)).ToList() : new List<string>(),
+                            bindings = siteJson.TryGetProperty("Bindings", out var bindingsProp) && bindingsProp.ValueKind == System.Text.Json.JsonValueKind.Array ?
+                                bindingsProp.EnumerateArray().Select(binding => binding.GetString() ?? "").Where(s => !string.IsNullOrEmpty(s)).ToList() : new List<string>()
+                        };
+
+                        _logger.LogInformation("Site encontrado: {SiteName}, Caminho: {PhysicalPath}", siteName, physicalPath);
+                        return (true, "Site encontrado", physicalPath, siteInfo);
+                    }
+                    catch (System.Text.Json.JsonException ex)
+                    {
+                        _logger.LogWarning(ex, "Erro ao fazer parse das informações do site. Output: {Output}", siteInfoResult.Output);
+                        return (false, $"Erro ao processar informações do site: {ex.Message}", string.Empty, null);
+                    }
+                }
+                finally
+                {
+                    // Limpar arquivo temporário
+                    try
+                    {
+                        if (File.Exists(tempScriptPath))
+                            File.Delete(tempScriptPath);
+                    }
+                    catch { /* Ignorar erros de limpeza */ }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter informações do site: {SiteName}", siteName);
+                return (false, $"Erro interno: {ex.Message}", string.Empty, null);
+            }
+        }
+
+        /// <summary>
+        /// Verifica se existe uma aplicação IIS em um caminho específico
+        /// </summary>
+        /// <param name="siteName">Nome do site</param>
+        /// <param name="applicationPath">Caminho da aplicação (ex: "/api")</param>
+        /// <returns>Resultado da verificação</returns>
+        public async Task<(bool Success, string Message, bool ApplicationExists, object? ApplicationInfo)> CheckApplicationExistsAsync(string siteName, string applicationPath)
+        {
+            _logger.LogInformation("Verificando aplicação IIS: Site={SiteName}, Path={ApplicationPath}", siteName, applicationPath);
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(siteName))
+                {
+                    return (false, "Nome do site é obrigatório", false, null);
+                }
+
+                // Normalizar o caminho da aplicação
+                if (!applicationPath.StartsWith("/"))
+                {
+                    applicationPath = "/" + applicationPath;
+                }
+
+                // Criar script PowerShell para verificar aplicação
+                var tempScriptPath = Path.Combine(Path.GetTempPath(), $"check_application_{Guid.NewGuid()}.ps1");
+                var powershellScript = $@"
+$site = Get-IISSite -Name '{siteName}' -ErrorAction SilentlyContinue
+
+if (-not $site) {{
+    Write-Output ""SITE_NOT_FOUND""
+    exit 1
+}}
+
+$application = $site.Applications | Where-Object {{ $_.Path -eq '{applicationPath}' }} | Select-Object -First 1
+
+if (-not $application) {{
+    Write-Output ""APPLICATION_NOT_FOUND""
+    exit 0
+}}
+
+$physicalPath = 'Path Not Available'
+try {{
+    $rootVDir = $application.VirtualDirectories | Where-Object {{ $_.Path -eq '/' }} | Select-Object -First 1
+    if ($rootVDir -and $rootVDir.PhysicalPath) {{
+        $physicalPath = $rootVDir.PhysicalPath
+    }}
+}} catch {{
+    # Keep default value
+}}
+
+$appInfo = [PSCustomObject]@{{
+    SiteName = '{siteName}'
+    Path = $application.Path
+    ApplicationPool = $application.ApplicationPoolName
+    PhysicalPath = $physicalPath
+    EnabledProtocols = $application.EnabledProtocols
+}}
+
+$appInfo | ConvertTo-Json -Compress
+";
+
+                try
+                {
+                    // Escrever script temporário
+                    await File.WriteAllTextAsync(tempScriptPath, powershellScript);
+                    
+                    // Executar script
+                    var appsResult = await ExecuteCommandAsync("powershell", 
+                        $"-ExecutionPolicy Bypass -File \"{tempScriptPath}\"");
+
+                    if (!appsResult.Success)
+                    {
+                        return (false, $"Erro ao verificar aplicações do site: {appsResult.Message}", false, null);
+                    }
+
+                    if (string.IsNullOrWhiteSpace(appsResult.Output))
+                    {
+                        return (false, "Resposta vazia do comando PowerShell", false, null);
+                    }
+
+                    if (appsResult.Output.Contains("SITE_NOT_FOUND"))
+                    {
+                        return (false, $"Site '{siteName}' não encontrado", false, null);
+                    }
+
+                    if (appsResult.Output.Contains("APPLICATION_NOT_FOUND"))
+                    {
+                        _logger.LogDebug("Aplicação não encontrada: {SiteName}{ApplicationPath}", siteName, applicationPath);
+                        return (true, "Aplicação não existe no IIS", false, null);
+                    }
+
+                    try
+                    {
+                        var appJson = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(appsResult.Output);
+                        
+                        var appInfo = new
+                        {
+                            siteName = appJson.TryGetProperty("SiteName", out var siteNameProp) ? siteNameProp.GetString() : siteName,
+                            path = appJson.TryGetProperty("Path", out var pathProp) ? pathProp.GetString() : applicationPath,
+                            applicationPool = appJson.TryGetProperty("ApplicationPool", out var poolProp) ? poolProp.GetString() : "Unknown",
+                            physicalPath = appJson.TryGetProperty("PhysicalPath", out var physPathProp) ? physPathProp.GetString() : "Unknown",
+                            enabledProtocols = appJson.TryGetProperty("EnabledProtocols", out var protocolsProp) ? protocolsProp.GetString() : "Unknown"
+                        };
+
+                        _logger.LogInformation("Aplicação IIS encontrada: {SiteName}{ApplicationPath}", siteName, applicationPath);
+                        return (true, "Aplicação existe no IIS", true, appInfo);
+                    }
+                    catch (System.Text.Json.JsonException ex)
+                    {
+                        _logger.LogWarning(ex, "Erro ao fazer parse das informações da aplicação. Output: {Output}", appsResult.Output);
+                        return (false, $"Erro ao processar informações da aplicação: {ex.Message}", false, null);
+                    }
+                }
+                finally
+                {
+                    // Limpar arquivo temporário
+                    try
+                    {
+                        if (File.Exists(tempScriptPath))
+                            File.Delete(tempScriptPath);
+                    }
+                    catch { /* Ignorar erros de limpeza */ }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao verificar aplicação: {SiteName}{ApplicationPath}", siteName, applicationPath);
+                return (false, $"Erro interno: {ex.Message}", false, null);
+            }
+        }
+
+        /// <summary>
+        /// Lista todos os sites IIS disponíveis
+        /// </summary>
+        /// <returns>Lista de sites</returns>
+        public async Task<(bool Success, string Message, List<object> Sites)> GetAllSitesAsync()
+        {
+            _logger.LogInformation("Listando todos os sites IIS");
+
+            try
+            {
+                // Criar arquivo PowerShell temporário para garantir execução correta
+                var tempScriptPath = Path.Combine(Path.GetTempPath(), $"get_iis_sites_{Guid.NewGuid()}.ps1");
+                var powershellScript = @"
+$sites = @()
+Get-IISSite | ForEach-Object {
+    $site = $_
+    $physicalPath = 'Path Not Available'
+    
+    try {
+        $rootApp = $site.Applications | Where-Object { $_.Path -eq '/' } | Select-Object -First 1
+        if ($rootApp) {
+            $rootVDir = $rootApp.VirtualDirectories | Where-Object { $_.Path -eq '/' } | Select-Object -First 1
+            if ($rootVDir -and $rootVDir.PhysicalPath) {
+                $physicalPath = $rootVDir.PhysicalPath
+            }
+        }
+    } catch {
+        # Keep default value
+    }
+    
+    $siteInfo = [PSCustomObject]@{
+        Name = $site.Name
+        Id = [int]$site.Id
+        State = [int]$site.State
+        PhysicalPath = $physicalPath
+    }
+    $sites += $siteInfo
+}
+
+$sites | ConvertTo-Json -Depth 1 -Compress
+";
+
+                try
+                {
+                    // Escrever script temporário
+                    await File.WriteAllTextAsync(tempScriptPath, powershellScript);
+                    
+                    // Executar script
+                    var sitesResult = await ExecuteCommandAsync("powershell", 
+                        $"-ExecutionPolicy Bypass -File \"{tempScriptPath}\"");
+
+                    if (!sitesResult.Success)
+                    {
+                        return (false, sitesResult.Message, new List<object>());
+                    }
+
+                    if (string.IsNullOrWhiteSpace(sitesResult.Output))
+                    {
+                        return (true, "Nenhum site encontrado", new List<object>());
+                    }
+
+                    try
+                    {
+                        _logger.LogDebug("Saída do comando PowerShell: {Output}", sitesResult.Output);
+                        
+                        var sitesJson = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(sitesResult.Output);
+                        var sites = new List<object>();
+
+                        if (sitesJson.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        {
+                            foreach (var site in sitesJson.EnumerateArray())
+                            {
+                                sites.Add(CreateSiteObjectFromCleanJson(site));
+                            }
+                        }
+                        else if (sitesJson.ValueKind == System.Text.Json.JsonValueKind.Object)
+                        {
+                            // Apenas um site
+                            sites.Add(CreateSiteObjectFromCleanJson(sitesJson));
+                        }
+
+                        _logger.LogInformation("Encontrados {Count} sites IIS", sites.Count);
+                        return (true, $"Encontrados {sites.Count} sites", sites);
+                    }
+                    catch (System.Text.Json.JsonException ex)
+                    {
+                        _logger.LogWarning(ex, "Erro ao fazer parse da lista de sites. Output: {Output}", sitesResult.Output);
+                        return (false, $"Erro ao processar lista de sites: {ex.Message}", new List<object>());
+                    }
+                }
+                finally
+                {
+                    // Limpar arquivo temporário
+                    try
+                    {
+                        if (File.Exists(tempScriptPath))
+                            File.Delete(tempScriptPath);
+                    }
+                    catch { /* Ignorar erros de limpeza */ }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao listar sites IIS");
+                return (false, $"Erro interno: {ex.Message}", new List<object>());
+            }
+        }
+
+        /// <summary>
+        /// Cria um objeto de site a partir de um JsonElement limpo (gerado pelo nosso script)
+        /// </summary>
+        /// <param name="siteElement">Elemento JSON do site</param>
+        /// <returns>Objeto representando o site</returns>
+        private object CreateSiteObjectFromCleanJson(System.Text.Json.JsonElement siteElement)
+        {
+            try
+            {
+                return new
+                {
+                    name = siteElement.GetProperty("Name").GetString() ?? "Unknown",
+                    id = siteElement.GetProperty("Id").GetInt32(),
+                    state = siteElement.GetProperty("State").GetInt32(),
+                    physicalPath = siteElement.GetProperty("PhysicalPath").GetString() ?? "Unknown"
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Erro ao processar elemento de site individual");
+                return new
+                {
+                    name = "Error",
+                    id = 0,
+                    state = 0,
+                    physicalPath = $"Error: {ex.Message}"
+                };
+            }
+        }
+
+        /// <summary>
+        /// Cria um objeto de site a partir de um JsonElement, tratando diferentes tipos de dados
+        /// </summary>
+        /// <param name="siteElement">Elemento JSON do site</param>
+        /// <returns>Objeto representando o site</returns>
+        private object CreateSiteObject(System.Text.Json.JsonElement siteElement)
+        {
+            try
+            {
+                // Extrair name de forma segura
+                string name = "Unknown";
+                if (siteElement.TryGetProperty("Name", out var nameElement))
+                {
+                    if (nameElement.ValueKind == System.Text.Json.JsonValueKind.String)
+                    {
+                        name = nameElement.GetString() ?? "Unknown";
+                    }
+                    else if (nameElement.ValueKind == System.Text.Json.JsonValueKind.Number)
+                    {
+                        name = nameElement.GetInt32().ToString();
+                    }
+                }
+
+                // Extrair id de forma segura
+                int id = 0;
+                if (siteElement.TryGetProperty("Id", out var idElement))
+                {
+                    if (idElement.ValueKind == System.Text.Json.JsonValueKind.Number)
+                    {
+                        id = idElement.GetInt32();
+                    }
+                    else if (idElement.ValueKind == System.Text.Json.JsonValueKind.String && 
+                             int.TryParse(idElement.GetString(), out var parsedId))
+                    {
+                        id = parsedId;
+                    }
+                }
+
+                // Extrair state de forma segura
+                string state = "Unknown";
+                if (siteElement.TryGetProperty("State", out var stateElement))
+                {
+                    if (stateElement.ValueKind == System.Text.Json.JsonValueKind.String)
+                    {
+                        state = stateElement.GetString() ?? "Unknown";
+                    }
+                    else if (stateElement.ValueKind == System.Text.Json.JsonValueKind.Number)
+                    {
+                        state = stateElement.GetInt32().ToString();
+                    }
+                }
+
+                // Extrair physicalPath de forma segura
+                string physicalPath = "Unknown";
+                if (siteElement.TryGetProperty("PhysicalPath", out var pathElement))
+                {
+                    if (pathElement.ValueKind == System.Text.Json.JsonValueKind.String)
+                    {
+                        physicalPath = pathElement.GetString() ?? "Unknown";
+                    }
+                    else if (pathElement.ValueKind == System.Text.Json.JsonValueKind.Null)
+                    {
+                        physicalPath = "Not Available";
+                    }
+                }
+
+                return new
+                {
+                    name = name,
+                    id = id,
+                    state = state,
+                    physicalPath = physicalPath
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Erro ao processar elemento de site individual");
+                return new
+                {
+                    name = "Error",
+                    id = 0,
+                    state = "Error",
+                    physicalPath = $"Error: {ex.Message}"
+                };
+            }
+        }
     }
 }

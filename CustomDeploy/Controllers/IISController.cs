@@ -330,31 +330,14 @@ namespace CustomDeploy.Controllers
             {
                 _logger.LogInformation("Solicitação para listar sites IIS");
 
-                // Usar PowerShell para listar sites
-                var processInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "powershell",
-                    Arguments = "-Command \"Get-IISSite | ConvertTo-Json\"",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-
-                using var process = new System.Diagnostics.Process { StartInfo = processInfo };
-                process.Start();
-
-                var output = await process.StandardOutput.ReadToEndAsync();
-                var error = await process.StandardError.ReadToEndAsync();
+                var result = await _iisManagementService.GetAllSitesAsync();
                 
-                await process.WaitForExitAsync();
-
-                if (process.ExitCode == 0)
+                if (result.Success)
                 {
                     var response = new
                     {
-                        message = "Sites listados com sucesso",
-                        sites = string.IsNullOrWhiteSpace(output) ? "Nenhum site encontrado" : output,
+                        message = result.Message,
+                        sites = result.Sites,
                         timestamp = DateTime.UtcNow
                     };
 
@@ -364,8 +347,8 @@ namespace CustomDeploy.Controllers
                 {
                     var response = new
                     {
-                        message = "Erro ao listar sites",
-                        error = error,
+                        message = result.Message,
+                        error = "Failed to retrieve sites",
                         timestamp = DateTime.UtcNow
                     };
 
@@ -445,6 +428,87 @@ namespace CustomDeploy.Controllers
                     details = ex.Message,
                     timestamp = DateTime.UtcNow
                 });
+            }
+        }
+
+        /// <summary>
+        /// Obtém informações detalhadas de um site específico
+        /// </summary>
+        /// <param name="siteName">Nome do site</param>
+        /// <returns>Informações detalhadas do site</returns>
+        [HttpGet("sites/{siteName}")]
+        public async Task<IActionResult> GetSiteInfo(string siteName)
+        {
+            try
+            {
+                _logger.LogInformation("Solicitação para obter informações do site: {SiteName}", siteName);
+
+                var result = await _iisManagementService.GetSiteInfoAsync(siteName);
+
+                if (result.Success)
+                {
+                    return Ok(new
+                    {
+                        message = result.Message,
+                        siteInfo = result.SiteInfo,
+                        physicalPath = result.PhysicalPath,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return NotFound(new
+                    {
+                        message = result.Message,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter informações do site: {SiteName}", siteName);
+                return StatusCode(500, new { message = "Erro interno", details = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Verifica se uma aplicação existe em um site específico
+        /// </summary>
+        /// <param name="siteName">Nome do site</param>
+        /// <param name="applicationPath">Caminho da aplicação</param>
+        /// <returns>Status da aplicação</returns>
+        [HttpGet("sites/{siteName}/applications/{applicationPath}")]
+        public async Task<IActionResult> CheckApplication(string siteName, string applicationPath)
+        {
+            try
+            {
+                _logger.LogInformation("Verificando aplicação: {SiteName}/{ApplicationPath}", siteName, applicationPath);
+
+                var result = await _iisManagementService.CheckApplicationExistsAsync(siteName, applicationPath);
+
+                if (result.Success)
+                {
+                    return Ok(new
+                    {
+                        message = result.Message,
+                        applicationExists = result.ApplicationExists,
+                        applicationInfo = result.ApplicationInfo,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return StatusCode(500, new
+                    {
+                        message = result.Message,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao verificar aplicação: {SiteName}/{ApplicationPath}", siteName, applicationPath);
+                return StatusCode(500, new { message = "Erro interno", details = ex.Message });
             }
         }
     }

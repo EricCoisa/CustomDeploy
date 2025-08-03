@@ -32,10 +32,13 @@ namespace CustomDeploy.Controllers
                     string.IsNullOrWhiteSpace(request.Branch) ||
                     string.IsNullOrWhiteSpace(request.BuildCommand) ||
                     string.IsNullOrWhiteSpace(request.BuildOutput) ||
-                    string.IsNullOrWhiteSpace(request.TargetPath))
+                    string.IsNullOrWhiteSpace(request.IisSiteName))
                 {
-                    return BadRequest(new { message = "All fields are required" });
+                    return BadRequest(new { message = "RepoUrl, Branch, BuildCommand, BuildOutput and IisSiteName are required" });
                 }
+
+                // TargetPath é opcional quando ApplicationPath é especificado
+                // Ambos podem ser opcionais para deploy no root do site
 
                 // Executar o deploy usando o DeployService
                 var result = await _deployService.ExecuteDeployAsync(request);
@@ -50,7 +53,9 @@ namespace CustomDeploy.Controllers
                         buildCommand = request.BuildCommand,
                         buildOutput = request.BuildOutput,
                         targetPath = request.TargetPath,
-                        timestamp = DateTime.UtcNow
+                        iisSiteName = request.IisSiteName,
+                        timestamp = DateTime.UtcNow,
+                        deployDetails = result.DeployDetails
                     });
                 }
                 else

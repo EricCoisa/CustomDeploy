@@ -1,20 +1,47 @@
 ﻿[
   {
+    "name": "gruppy/carteira",
+    "repository": "https://github.com/LinkedFarma/Gruppy.Solution.Front",
+    "branch": "dev",
+    "buildCommand": "npm i \u0026\u0026 npm run build:carteira",
+    "targetPath": "C:\\inetpub\\wwwroot\\carteira\\carteira",
+    "deployedAt": "2025-08-03T02:50:44.8470261Z",
+    "exists": false
+  },
+  {
+    "name": "gruppy/abobora",
+    "repository": "https://github.com/LinkedFarma/Gruppy.Solution.Front",
+    "branch": "dev",
+    "buildCommand": "npm i \u0026\u0026 npm run build:carteira",
+    "targetPath": "C:\\inetpub\\wwwroot\\carteira\\abobora",
+    "deployedAt": "2025-08-03T02:55:08.1757204Z",
+    "exists": false
+  },
+  {
+    "name": "gruppy/aaa",
+    "repository": "https://github.com/LinkedFarma/Gruppy.Solution.Front",
+    "branch": "dev",
+    "buildCommand": "npm i \u0026\u0026 npm run build:carteira",
+    "targetPath": "C:\\inetpub\\wwwroot\\carteira\\aaa",
+    "deployedAt": "2025-08-03T02:59:24.3455224Z",
+    "exists": false
+  },
+  {
+    "name": "carteira/",
+    "repository": "https://github.com/LinkedFarma/Gruppy.Solution.Front",
+    "branch": "dev",
+    "buildCommand": "npm i \u0026\u0026 npm run build:carteira",
+    "targetPath": "C:\\inetpub\\wwwroot\\carteira",
+    "deployedAt": "2025-08-03T03:03:34.4890145Z",
+    "exists": true
+  },
+  {
     "name": "carteira/api",
     "repository": "https://github.com/LinkedFarma/Gruppy.Solution.Front",
     "branch": "dev",
     "buildCommand": "npm i \u0026\u0026 npm run build:carteira",
-    "targetPath": "C:\\temp\\wwwroot\\carteira\\api",
-    "deployedAt": "2025-08-03T01:16:02.643143Z",
-    "exists": true
-  },
-  {
-    "name": "carteira",
-    "repository": "N/A (Criado automaticamente)",
-    "branch": "N/A",
-    "buildCommand": "N/A",
-    "targetPath": "C:\\temp\\wwwroot\\carteira",
-    "deployedAt": "2025-08-02T22:15:53.3266152-03:00",
+    "targetPath": "C:\\inetpub\\wwwroot\\carteira\\api",
+    "deployedAt": "2025-08-03T03:04:15.0957267Z",
     "exists": true
   }
 ]
