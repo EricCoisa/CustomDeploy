@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "SlYLooOvD8o=",
+  "dgSpecHash": "quW9hdLsPeU=",
   "success": true,
-  "projectFilePath": "c:\\Users\\ericv\\source\\repos\\CustomDeploy\\CustomDeploy\\CustomDeploy\\CustomDeploy.csproj",
+  "projectFilePath": "C:\\Users\\ericv\\source\\repos\\CustomDeploy\\CustomDeploy\\CustomDeploy\\CustomDeploy.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\ericv\\.nuget\\packages\\microsoft.aspnetcore.authentication.jwtbearer\\8.0.0\\microsoft.aspnetcore.authentication.jwtbearer.8.0.0.nupkg.sha512",
     "C:\\Users\\ericv\\.nuget\\packages\\microsoft.extensions.apidescription.server\\6.0.5\\microsoft.extensions.apidescription.server.6.0.5.nupkg.sha512",

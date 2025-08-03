@@ -16,6 +16,12 @@ builder.Services.AddScoped<DeployService>();
 // Registrar o PublicationService
 builder.Services.AddScoped<PublicationService>();
 
+// Registrar o IISManagementService
+builder.Services.AddScoped<IISManagementService>();
+
+// Registrar o AdministratorService
+builder.Services.AddScoped<AdministratorService>();
+
 // Configure JWT Settings
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>();
