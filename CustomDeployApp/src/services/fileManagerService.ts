@@ -1,15 +1,29 @@
 import { api, type ApiResponse } from '../utils/api';
 
-// Interfaces para os dados do FileManager
-export interface FileSystemItem {
+// Interfaces para os dados do FileManager (como vêm da API)
+interface RawFileSystemItem {
   name: string;
   fullPath: string;
-  isDirectory: boolean;
+  type: string;
   size?: number;
   lastModified?: string;
   extension?: string;
   isAccessible: boolean;
   isHidden?: boolean;
+}
+
+// Interfaces para os dados transformados (como usamos no frontend)
+export interface FileSystemItem {
+  name: string;
+  fullPath: string;
+  type: string; // "directory" ou "file"
+  size?: number;
+  lastModified?: string;
+  extension?: string;
+  isAccessible: boolean;
+  isHidden?: boolean;
+  // Propriedade computada para compatibilidade
+  isDirectory: boolean;
 }
 
 export interface DirectoryContents {
@@ -51,6 +65,32 @@ class FileManagerService {
   private readonly baseUrl = '/FileManager';
 
   /**
+   * Transforma os dados recebidos da API para adicionar propriedades computadas
+   */
+  private transformFileSystemItem(item: RawFileSystemItem): FileSystemItem {
+    return {
+      ...item,
+      isDirectory: item.type === 'directory'
+    };
+  }
+
+  /**
+   * Transforma o conteúdo do diretório recebido da API
+   */
+  private transformDirectoryContents(data: Omit<DirectoryContents, 'items' | 'directories' | 'files'> & {
+    items: RawFileSystemItem[];
+    directories?: RawFileSystemItem[];
+    files?: RawFileSystemItem[];
+  }): DirectoryContents {
+    return {
+      ...data,
+      items: data.items?.map((item: RawFileSystemItem) => this.transformFileSystemItem(item)) || [],
+      directories: data.directories?.map((item: RawFileSystemItem) => this.transformFileSystemItem(item)) || [],
+      files: data.files?.map((item: RawFileSystemItem) => this.transformFileSystemItem(item)) || []
+    };
+  }
+
+  /**
    * Obtém o conteúdo de um diretório
    */
   async getDirectoryContents(
@@ -69,9 +109,21 @@ class FileManagerService {
       params.append('sortBy', sortBy);
       params.append('ascending', ascending.toString());
 
-      const response = await api.get<DirectoryContents>(`${this.baseUrl}?${params.toString()}`);
+      const response = await api.get<Omit<DirectoryContents, 'items' | 'directories' | 'files'> & {
+        items: RawFileSystemItem[];
+        directories?: RawFileSystemItem[];
+        files?: RawFileSystemItem[];
+      }>(`${this.baseUrl}?${params.toString()}`);
       
-      return response;
+      if (response.success) {
+        return {
+          success: true,
+          data: this.transformDirectoryContents(response.data),
+          message: response.message
+        };
+      }
+      
+      return response as ApiResponse<DirectoryContents>;
     } catch (error) {
       console.error('Erro ao obter conteúdo do diretório:', error);
       return {
@@ -90,12 +142,12 @@ class FileManagerService {
       const params = new URLSearchParams();
       params.append('path', path);
 
-      const response = await api.get<{ message: string; item: FileSystemItem; timestamp: string }>(`${this.baseUrl}/item?${params.toString()}`);
+      const response = await api.get<{ message: string; item: RawFileSystemItem; timestamp: string }>(`${this.baseUrl}/item?${params.toString()}`);
       
       if (response.success && response.data && response.data.item) {
         return {
           success: true,
-          data: response.data.item,
+          data: this.transformFileSystemItem(response.data.item),
           message: response.data.message || 'Informações obtidas com sucesso',
         };
       }
