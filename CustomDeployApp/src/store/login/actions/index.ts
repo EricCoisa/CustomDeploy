@@ -89,20 +89,16 @@ export const checkAuthState = () => {
         const user = authService.getCurrentUser();
         
         if (user) {
-          // Verificar na API se o token ainda é válido
-          const isTokenValid = await authService.verifyToken();
-          
-          if (isTokenValid) {
-            dispatch(loginSuccess(user));
-          } else {
-            // Token inválido, fazer logout
-            await authService.logout();
-            dispatch(logout());
-          }
+          console.log('🔄 Token válido encontrado, restaurando sessão para:', user.username);
+          dispatch(loginSuccess(user));
         } else {
+          console.log('❌ Dados do usuário não encontrados, fazendo logout');
           dispatch(logout());
         }
       } else {
+        console.log('❌ Token inválido ou expirado, usuário não autenticado');
+        // Se token expirou, limpar dados
+        await authService.logout();
         dispatch(logout());
       }
     } catch (error) {

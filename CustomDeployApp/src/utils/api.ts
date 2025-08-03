@@ -51,11 +51,20 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error: AxiosError) => {
-    // Se token expirou ou inválido, redirecionar para login
+    // Se token expirou ou inválido (401 Unauthorized)
     if (error.response?.status === 401) {
+      console.log('🚨 Token inválido ou expirado (401), limpando dados locais');
+      
+      // Limpar dados de autenticação
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      localStorage.removeItem('tokenExpiration');
+      
+      // Se não estivermos na página de login, redirecionar
+      if (window.location.pathname !== '/login' && window.location.pathname !== '/') {
+        console.log('🔄 Redirecionando para login...');
+        window.location.href = '/login';
+      }
     }
     
     return Promise.reject(error);

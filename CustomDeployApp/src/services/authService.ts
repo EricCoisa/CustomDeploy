@@ -74,24 +74,7 @@ class AuthService {
 
   // Verificar se usuário está autenticado
   isAuthenticated(): boolean {
-    const token = api.getAuthToken();
-    const expiration = localStorage.getItem('tokenExpiration');
-    
-    if (!token || !expiration) {
-      return false;
-    }
-    
-    // Verificar se token não expirou
-    const expirationDate = new Date(expiration);
-    const now = new Date();
-    
-    if (now >= expirationDate) {
-      // Token expirado, limpar dados
-      this.logout();
-      return false;
-    }
-    
-    return true;
+    return this.isTokenValid();
   }
 
   // Obter dados do usuário logado
@@ -111,18 +94,27 @@ class AuthService {
     return null;
   }
 
-  // Verificar validade do token na API
-  async verifyToken(): Promise<boolean> {
-    try {
-      // Fazer uma requisição para verificar se o token ainda é válido
-      // Podemos usar qualquer endpoint protegido para isso
-      const response = await api.get('/auth/verify');
-      return response.success;
-    } catch {
-      // Se der erro, token provavelmente é inválido
-      this.logout();
+  // Verificar validade do token localmente (sem endpoint no backend)
+  isTokenValid(): boolean {
+    const token = api.getAuthToken();
+    const expiration = localStorage.getItem('tokenExpiration');
+    
+    if (!token || !expiration) {
       return false;
     }
+    
+    // Verificar se token não expirou
+    const expirationDate = new Date(expiration);
+    const now = new Date();
+    
+    // Adicionar margem de 1 minuto para evitar problemas de sincronização
+    const expirationWithMargin = new Date(expirationDate.getTime() - 60 * 1000);
+    
+    if (now >= expirationWithMargin) {
+      return false;
+    }
+    
+    return true;
   }
 
   // Obter token atual

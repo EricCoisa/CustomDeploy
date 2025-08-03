@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { LoginForm } from './components/LoginForm';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { loginUser, checkAuthState } from '../../store/login/actions';
@@ -17,6 +18,7 @@ import {
 // Componente LoginView
 export const LoginView: React.FC = () => {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { isLoading, error, isAuthenticated } = useAppSelector(state => state.login);
 
   // Verificar se usuário já está logado ao carregar a página
@@ -27,10 +29,10 @@ export const LoginView: React.FC = () => {
   // Redirecionar se já estiver autenticado
   useEffect(() => {
     if (isAuthenticated) {
-      // TODO: Implementar navegação para dashboard quando as rotas estiverem prontas
-      console.log('Usuário autenticado! Redirecionar para dashboard...');
+      console.log('✅ Usuário autenticado! Redirecionando para dashboard...');
+      navigate('/dashboard');
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, navigate]);
 
   // Handler para submit do login
   const handleLogin = (credentials: LoginCredentials) => {
