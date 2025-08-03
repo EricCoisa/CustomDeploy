@@ -431,7 +431,8 @@ namespace CustomDeploy.Controllers
                     var appsResult = await _iisManagementService.GetSiteApplicationsAsync(request.IisSiteName);
                     if (appsResult.Success)
                     {
-                        var targetApp = appsResult.Applications.FirstOrDefault(a =>
+                        var applications = appsResult.Data as List<object> ?? new List<object>();
+                        var targetApp = applications.FirstOrDefault(a =>
                         {
                             var appData = System.Text.Json.JsonSerializer.Serialize(a);
                             var appInfo = System.Text.Json.JsonSerializer.Deserialize<ApplicationInfo>(appData);

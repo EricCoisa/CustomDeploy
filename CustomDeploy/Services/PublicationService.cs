@@ -73,7 +73,8 @@ namespace CustomDeploy.Services
                         var appsResult = await _iisManagementService.GetSiteApplicationsAsync(site.Name);
                         if (appsResult.Success)
                         {
-                            foreach (var appObj in appsResult.Applications)
+                            var applications = appsResult.Data as List<object> ?? new List<object>();
+                            foreach (var appObj in applications)
                             {
                                 try
                                 {

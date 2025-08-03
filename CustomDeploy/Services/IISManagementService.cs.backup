@@ -283,14 +283,12 @@ namespace CustomDeploy.Services
                     if (process.ExitCode == 0)
                     {
                         result.CanExecuteIISCommands = true;
-                        result.CanManageIIS = true;
                         result.TestDetails.Add("✅ Pode executar comandos IIS (iisreset /status)");
                         _logger.LogDebug("Teste de comando IIS: SUCESSO");
                     }
                     else
                     {
                         result.CanExecuteIISCommands = false;
-                        result.CanManageIIS = false;
                         result.TestDetails.Add($"❌ Comando IIS falhou (código: {process.ExitCode})");
                         
                         if (error.Contains("Access is denied") || error.Contains("Acesso negado"))
@@ -311,7 +309,6 @@ namespace CustomDeploy.Services
                 catch (Exception ex)
                 {
                     result.CanExecuteIISCommands = false;
-                    result.CanManageIIS = false;
                     result.TestDetails.Add($"❌ Erro ao executar comando IIS: {ex.Message}");
                     result.Instructions.Add("• Execute a aplicação como Administrador");
                     result.Instructions.Add("• Verifique se o IIS está instalado e configurado");
@@ -319,49 +316,7 @@ namespace CustomDeploy.Services
                     _logger.LogWarning(ex, "Teste de comando IIS: EXCEÇÃO");
                 }
 
-                // 4. Testar acesso ao FileManager (sistema de arquivos)
-                _logger.LogDebug("Testando permissões do FileManager");
-                try
-                {
-                    // Testar acesso ao disco C:\
-                    var rootAccess = Directory.Exists(@"C:\");
-                    
-                    if (rootAccess)
-                    {
-                        // Testar listagem de diretórios na raiz
-                        var rootDirectories = Directory.GetDirectories(@"C:\");
-                        result.TestDetails.Add($"✅ FileManager: Pode acessar disco C:\\ ({rootDirectories.Length} diretórios encontrados)");
-                        
-                        // Testar acesso a uma pasta comum
-                        if (Directory.Exists(@"C:\Users"))
-                        {
-                            result.TestDetails.Add("✅ FileManager: Pode acessar C:\\Users");
-                        }
-                        
-                        if (Directory.Exists(@"C:\Program Files"))
-                        {
-                            result.TestDetails.Add("✅ FileManager: Pode acessar C:\\Program Files");
-                        }
-                    }
-                    else
-                    {
-                        result.TestDetails.Add("❌ FileManager: Não pode acessar disco C:\\");
-                        result.Instructions.Add("• Execute a aplicação como Administrador para acesso completo ao sistema de arquivos");
-                    }
-                }
-                catch (UnauthorizedAccessException ex)
-                {
-                    result.TestDetails.Add("❌ FileManager: Acesso negado ao sistema de arquivos");
-                    result.Instructions.Add("• Execute a aplicação como Administrador para usar o FileManager");
-                    _logger.LogWarning(ex, "Teste FileManager: FALHA - Acesso negado");
-                }
-                catch (Exception ex)
-                {
-                    result.TestDetails.Add($"❌ FileManager: Erro ao acessar sistema de arquivos: {ex.Message}");
-                    _logger.LogWarning(ex, "Teste FileManager: FALHA");
-                }
-
-                // 5. Adicionar instruções gerais se houver falhas
+                // 4. Adicionar instruções gerais se houver falhas
                 if (!result.AllPermissionsGranted)
                 {
                     result.Instructions.Add("");
@@ -389,7 +344,6 @@ namespace CustomDeploy.Services
                 result.CanCreateFolders = false;
                 result.CanMoveFiles = false;
                 result.CanExecuteIISCommands = false;
-                result.CanManageIIS = false;
                 result.TestDetails.Add($"❌ Erro crítico durante verificação: {ex.Message}");
                 result.Instructions.Add("• Execute a aplicação como Administrador");
                 result.Instructions.Add("• Verifique se há conflitos com antivírus ou firewall");
@@ -1109,7 +1063,7 @@ $sites | ConvertTo-Json -Depth 1 -Compress
         /// </summary>
         /// <param name="siteName">Nome do site</param>
         /// <returns>Lista de aplicações do site</returns>
-        public async Task<IISOperationResult> GetSiteApplicationsAsync(string siteName)
+        public async Task<(bool Success, string Message, List<object> Applications)> GetSiteApplicationsAsync(string siteName)
         {
             var tempScriptPath = Path.GetTempFileName() + ".ps1";
             
@@ -1155,22 +1109,12 @@ try {{
 
                     if (!appsResult.Success)
                     {
-                        return new IISOperationResult
-                        {
-                            Success = false,
-                            Message = appsResult.Message,
-                            Errors = { "Erro ao executar comando PowerShell" }
-                        };
+                        return (false, appsResult.Message, new List<object>());
                     }
 
                     if (string.IsNullOrWhiteSpace(appsResult.Output))
                     {
-                        return new IISOperationResult
-                        {
-                            Success = true,
-                            Message = "Nenhuma aplicação encontrada",
-                            Data = new List<object>()
-                        };
+                        return (true, "Nenhuma aplicação encontrada", new List<object>());
                     }
 
                     try
@@ -1196,22 +1140,12 @@ try {{
                         _logger.LogInformation("Encontradas {Count} aplicações no site {SiteName}", 
                             applicationsList.Count, siteName);
                         
-                        return new IISOperationResult
-                        {
-                            Success = true,
-                            Message = $"Encontradas {applicationsList.Count} aplicações",
-                            Data = applicationsList
-                        };
+                        return (true, $"Aplicações listadas com sucesso", applicationsList);
                     }
                     catch (System.Text.Json.JsonException ex)
                     {
                         _logger.LogError(ex, "Erro ao fazer parse do JSON das aplicações: {Output}", appsResult.Output);
-                        return new IISOperationResult
-                        {
-                            Success = false,
-                            Message = "Erro ao processar resposta JSON das aplicações",
-                            Errors = { ex.Message }
-                        };
+                        return (false, $"Erro ao processar resposta JSON das aplicações: {ex.Message}", new List<object>());
                     }
                 }
                 finally
@@ -1233,12 +1167,7 @@ try {{
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao listar aplicações do site: {SiteName}", siteName);
-                return new IISOperationResult
-                {
-                    Success = false,
-                    Message = "Erro interno ao listar aplicações",
-                    Errors = { ex.Message }
-                };
+                return (false, ex.Message, new List<object>());
             }
         }
 
@@ -1323,14 +1252,12 @@ try {{
                     // Criar Application Pool se não existir
                     appPool = serverManager.ApplicationPools.Add(request.AppPoolName);
                     appPool.ManagedRuntimeVersion = "v4.0";
-                    appPool.ManagedPipelineMode = ManagedPipelineMode.Integrated;
+                    appPool.ProcessModel.PipelineMode = ManagedPipelineMode.Integrated;
                     _logger.LogInformation("Application Pool criado: {AppPoolName}", request.AppPoolName);
                 }
 
                 // Criar o site
-                var portString = ExtractPortFromBinding(request.BindingInformation);
-                var port = int.TryParse(portString, out var parsedPort) ? parsedPort : 80;
-                var site = serverManager.Sites.Add(request.SiteName, request.PhysicalPath, port);
+                var site = serverManager.Sites.Add(request.SiteName, request.PhysicalPath, ExtractPortFromBinding(request.BindingInformation));
                 site.Applications[0].ApplicationPoolName = request.AppPoolName;
 
                 // Configurar binding personalizado se necessário
@@ -1877,6 +1804,55 @@ try {{
             }
         }
 
+        /// <summary>
+        /// Lista todas as aplicações de um site específico
+        /// </summary>
+        public async Task<IISOperationResult> GetSiteApplicationsAsync(string siteName)
+        {
+            _logger.LogInformation("Listando aplicações do site: {SiteName}", siteName);
+
+            try
+            {
+                using var serverManager = new ServerManager();
+
+                var site = serverManager.Sites.FirstOrDefault(s => s.Name.Equals(siteName, StringComparison.OrdinalIgnoreCase));
+                if (site == null)
+                {
+                    return new IISOperationResult
+                    {
+                        Success = false,
+                        Message = $"Site '{siteName}' não encontrado",
+                        Errors = { "Site especificado não existe" }
+                    };
+                }
+
+                var applications = site.Applications.Select(app => new ApplicationInfo
+                {
+                    Name = app.Path,
+                    PhysicalPath = app.VirtualDirectories.FirstOrDefault()?.PhysicalPath ?? "N/A",
+                    EnabledProtocols = app.EnabledProtocols ?? "http",
+                    ApplicationPool = app.ApplicationPoolName ?? "N/A"
+                }).ToList();
+
+                return new IISOperationResult
+                {
+                    Success = true,
+                    Message = $"Encontradas {applications.Count} aplicações no site '{siteName}'",
+                    Data = applications
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao listar aplicações do site: {SiteName}", siteName);
+                return new IISOperationResult
+                {
+                    Success = false,
+                    Message = "Erro interno ao listar aplicações",
+                    Errors = { ex.Message }
+                };
+            }
+        }
+
         #endregion
 
         #region CRUD - Application Pools
@@ -1911,11 +1887,11 @@ try {{
                 // Configurar Pipeline Mode
                 if (request.PipelineMode.Equals("Classic", StringComparison.OrdinalIgnoreCase))
                 {
-                    appPool.ManagedPipelineMode = ManagedPipelineMode.Classic;
+                    appPool.ProcessModel.PipelineMode = ManagedPipelineMode.Classic;
                 }
                 else
                 {
-                    appPool.ManagedPipelineMode = ManagedPipelineMode.Integrated;
+                    appPool.ProcessModel.PipelineMode = ManagedPipelineMode.Integrated;
                 }
 
                 serverManager.CommitChanges();
@@ -1982,11 +1958,11 @@ try {{
                 {
                     if (request.PipelineMode.Equals("Classic", StringComparison.OrdinalIgnoreCase))
                     {
-                        appPool.ManagedPipelineMode = ManagedPipelineMode.Classic;
+                        appPool.ProcessModel.PipelineMode = ManagedPipelineMode.Classic;
                     }
                     else
                     {
-                        appPool.ManagedPipelineMode = ManagedPipelineMode.Integrated;
+                        appPool.ProcessModel.PipelineMode = ManagedPipelineMode.Integrated;
                     }
                 }
 
@@ -2014,7 +1990,7 @@ try {{
                         Name = appPool.Name,
                         State = appPool.State.ToString(),
                         RuntimeVersion = appPool.ManagedRuntimeVersion,
-                        PipelineMode = appPool.ManagedPipelineMode.ToString(),
+                        PipelineMode = appPool.ProcessModel.PipelineMode.ToString(),
                         Enable32BitAppOnWin64 = appPool.Enable32BitAppOnWin64,
                         IdleTimeout = (int)appPool.ProcessModel.IdleTimeout.TotalMinutes
                     }
@@ -2127,7 +2103,7 @@ try {{
                         Name = appPool.Name,
                         State = appPool.State.ToString(),
                         RuntimeVersion = appPool.ManagedRuntimeVersion,
-                        PipelineMode = appPool.ManagedPipelineMode.ToString(),
+                        PipelineMode = appPool.ProcessModel.PipelineMode.ToString(),
                         Enable32BitAppOnWin64 = appPool.Enable32BitAppOnWin64,
                         IdleTimeout = (int)appPool.ProcessModel.IdleTimeout.TotalMinutes
                     };
@@ -2176,31 +2152,6 @@ try {{
                     Message = "Erro interno ao listar Application Pools",
                     Errors = { ex.Message }
                 };
-            }
-        }
-
-        #endregion
-
-        #region Helper Methods
-
-        /// <summary>
-        /// Extrai a porta de uma string de binding
-        /// </summary>
-        private string ExtractPortFromBinding(string bindingInformation)
-        {
-            try
-            {
-                // Formato típico: "*:80:" ou "192.168.1.1:8080:"
-                var parts = bindingInformation.Split(':');
-                if (parts.Length >= 2)
-                {
-                    return parts[1];
-                }
-                return "80"; // Porta padrão
-            }
-            catch
-            {
-                return "80"; // Porta padrão em caso de erro
             }
         }
 

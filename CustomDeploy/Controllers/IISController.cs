@@ -21,47 +21,48 @@ namespace CustomDeploy.Controllers
             _administratorService = administratorService;
         }
 
+        #region Permission Management
+
         /// <summary>
-        /// Verifica se a aplicação possui permissões para gerenciar IIS
+        /// Verifica permissões e retorna instruções detalhadas para resolver problemas
         /// </summary>
-        /// <returns>Status das permissões necessárias</returns>
-        [HttpPost("verify-permissions")]
-        public async Task<IActionResult> VerifyPermissions()
+        /// <returns>Resultado detalhado da verificação com instruções</returns>
+        [HttpGet("request-permissions")]
+        public async Task<IActionResult> RequestPermissions()
         {
             try
             {
-                _logger.LogInformation("Solicitação para verificar permissões IIS recebida");
+                _logger.LogInformation("Solicitação para verificar permissões com instruções recebida");
 
-                var result = await _iisManagementService.VerifyPermissionsAsync();
+                var result = await _iisManagementService.RequestPermissionsAsync();
 
-                if (result.Success)
+                var response = new
                 {
-                    var response = new
+                    success = result.AllPermissionsGranted,
+                    message = result.AllPermissionsGranted 
+                        ? "Todas as permissões necessárias estão disponíveis" 
+                        : "Algumas permissões estão faltando",
+                    permissions = new
                     {
-                        message = result.Message,
-                        permissions = result.Permissions,
-                        timestamp = DateTime.UtcNow
-                    };
+                        canCreateFolders = result.CanCreateFolders,
+                        canMoveFiles = result.CanMoveFiles,
+                        canExecuteIISCommands = result.CanExecuteIISCommands,
+                        canManageIIS = result.CanManageIIS,
+                        allPermissionsGranted = result.AllPermissionsGranted
+                    },
+                    testDetails = result.TestDetails,
+                    instructions = result.Instructions,
+                    timestamp = DateTime.UtcNow
+                };
 
-                    return Ok(response);
-                }
-                else
-                {
-                    var response = new
-                    {
-                        message = result.Message,
-                        permissions = result.Permissions,
-                        timestamp = DateTime.UtcNow
-                    };
-
-                    return StatusCode(500, response);
-                }
+                return Ok(response);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao verificar permissões IIS");
+                _logger.LogError(ex, "Erro ao verificar permissões com instruções");
                 return StatusCode(500, new 
                 { 
+                    success = false,
                     message = "Erro interno do servidor ao verificar permissões", 
                     details = ex.Message,
                     timestamp = DateTime.UtcNow
@@ -170,66 +171,16 @@ namespace CustomDeploy.Controllers
             }
         }
 
-        /// <summary>
-        /// Verifica permissões e retorna instruções detalhadas para resolver problemas
-        /// </summary>
-        /// <returns>Resultado detalhado da verificação com instruções</returns>
-        [HttpGet("request-permissions")]
-        public async Task<IActionResult> RequestPermissions()
-        {
-            try
-            {
-                _logger.LogInformation("Solicitação para verificar permissões com instruções recebida");
+        #endregion
 
-                var result = await _iisManagementService.RequestPermissionsAsync();
-
-                var response = new
-                {
-                    success = result.AllPermissionsGranted,
-                    message = result.AllPermissionsGranted 
-                        ? "Todas as permissões necessárias estão disponíveis" 
-                        : "Algumas permissões estão faltando",
-                    permissions = new
-                    {
-                        canCreateFolders = result.CanCreateFolders,
-                        canMoveFiles = result.CanMoveFiles,
-                        canExecuteIISCommands = result.CanExecuteIISCommands,
-                        allPermissionsGranted = result.AllPermissionsGranted
-                    },
-                    testDetails = result.TestDetails,
-                    instructions = result.Instructions,
-                    timestamp = DateTime.UtcNow
-                };
-
-                if (result.AllPermissionsGranted)
-                {
-                    return Ok(response);
-                }
-                else
-                {
-                    // Retorna 200 mas indica que há problemas de permissão
-                    return Ok(response);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao verificar permissões com instruções");
-                return StatusCode(500, new 
-                { 
-                    success = false,
-                    message = "Erro interno do servidor ao verificar permissões", 
-                    details = ex.Message,
-                    timestamp = DateTime.UtcNow
-                });
-            }
-        }
+        #region Sites CRUD
 
         /// <summary>
         /// Cria um novo site no IIS
         /// </summary>
         /// <param name="request">Dados do site a ser criado</param>
         /// <returns>Resultado da criação do site</returns>
-        [HttpPost("create-site")]
+        [HttpPost("sites")]
         public async Task<IActionResult> CreateSite([FromBody] CreateSiteRequest request)
         {
             try
@@ -249,24 +200,16 @@ namespace CustomDeploy.Controllers
                 var validationErrors = new List<string>();
 
                 if (string.IsNullOrWhiteSpace(request.SiteName))
-                {
                     validationErrors.Add("Nome do site é obrigatório");
-                }
 
-                if (request.Port <= 0 || request.Port > 65535)
-                {
-                    validationErrors.Add("Porta deve estar entre 1 e 65535");
-                }
+                if (string.IsNullOrWhiteSpace(request.BindingInformation))
+                    validationErrors.Add("Binding information é obrigatório");
 
                 if (string.IsNullOrWhiteSpace(request.PhysicalPath))
-                {
                     validationErrors.Add("Caminho físico é obrigatório");
-                }
 
-                if (string.IsNullOrWhiteSpace(request.AppPool))
-                {
+                if (string.IsNullOrWhiteSpace(request.AppPoolName))
                     validationErrors.Add("Nome do Application Pool é obrigatório");
-                }
 
                 if (validationErrors.Any())
                 {
@@ -278,33 +221,25 @@ namespace CustomDeploy.Controllers
                     });
                 }
 
-                var result = await _iisManagementService.CreateSiteAsync(
-                    request.SiteName, 
-                    request.Port, 
-                    request.PhysicalPath, 
-                    request.AppPool);
+                var result = await _iisManagementService.CreateSiteAsync(request);
 
                 if (result.Success)
                 {
-                    var response = new
+                    return CreatedAtAction(nameof(GetSiteInfo), new { siteName = request.SiteName }, new
                     {
                         message = result.Message,
-                        site = result.Details,
+                        site = result.Data,
                         timestamp = DateTime.UtcNow
-                    };
-
-                    return CreatedAtAction(nameof(CreateSite), response);
+                    });
                 }
                 else
                 {
-                    var response = new
+                    return BadRequest(new
                     {
                         message = result.Message,
-                        details = result.Details,
+                        errors = result.Errors,
                         timestamp = DateTime.UtcNow
-                    };
-
-                    return BadRequest(response);
+                    });
                 }
             }
             catch (Exception ex)
@@ -320,7 +255,7 @@ namespace CustomDeploy.Controllers
         }
 
         /// <summary>
-        /// Lista todos os sites do IIS (endpoint adicional para conveniência)
+        /// Lista todos os sites do IIS com informações detalhadas
         /// </summary>
         /// <returns>Lista de sites existentes</returns>
         [HttpGet("sites")]
@@ -330,29 +265,25 @@ namespace CustomDeploy.Controllers
             {
                 _logger.LogInformation("Solicitação para listar sites IIS");
 
-                var result = await _iisManagementService.GetAllSitesAsync();
+                var result = await _iisManagementService.GetAllDetailedSitesAsync();
                 
                 if (result.Success)
                 {
-                    var response = new
+                    return Ok(new
                     {
                         message = result.Message,
-                        sites = result.Sites,
+                        sites = result.Data,
                         timestamp = DateTime.UtcNow
-                    };
-
-                    return Ok(response);
+                    });
                 }
                 else
                 {
-                    var response = new
+                    return StatusCode(500, new
                     {
                         message = result.Message,
-                        error = "Failed to retrieve sites",
+                        errors = result.Errors,
                         timestamp = DateTime.UtcNow
-                    };
-
-                    return StatusCode(500, response);
+                    });
                 }
             }
             catch (Exception ex)
@@ -361,70 +292,6 @@ namespace CustomDeploy.Controllers
                 return StatusCode(500, new 
                 { 
                     message = "Erro interno do servidor ao listar sites", 
-                    details = ex.Message,
-                    timestamp = DateTime.UtcNow
-                });
-            }
-        }
-
-        /// <summary>
-        /// Lista todos os Application Pools do IIS (endpoint adicional para conveniência)
-        /// </summary>
-        /// <returns>Lista de Application Pools existentes</returns>
-        [HttpGet("app-pools")]
-        public async Task<IActionResult> GetAppPools()
-        {
-            try
-            {
-                _logger.LogInformation("Solicitação para listar Application Pools IIS");
-
-                var processInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "powershell",
-                    Arguments = "-Command \"Get-IISAppPool | ConvertTo-Json\"",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-
-                using var process = new System.Diagnostics.Process { StartInfo = processInfo };
-                process.Start();
-
-                var output = await process.StandardOutput.ReadToEndAsync();
-                var error = await process.StandardError.ReadToEndAsync();
-                
-                await process.WaitForExitAsync();
-
-                if (process.ExitCode == 0)
-                {
-                    var response = new
-                    {
-                        message = "Application Pools listados com sucesso",
-                        appPools = string.IsNullOrWhiteSpace(output) ? "Nenhum Application Pool encontrado" : output,
-                        timestamp = DateTime.UtcNow
-                    };
-
-                    return Ok(response);
-                }
-                else
-                {
-                    var response = new
-                    {
-                        message = "Erro ao listar Application Pools",
-                        error = error,
-                        timestamp = DateTime.UtcNow
-                    };
-
-                    return StatusCode(500, response);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao listar Application Pools IIS");
-                return StatusCode(500, new 
-                { 
-                    message = "Erro interno do servidor ao listar Application Pools", 
                     details = ex.Message,
                     timestamp = DateTime.UtcNow
                 });
@@ -443,15 +310,14 @@ namespace CustomDeploy.Controllers
             {
                 _logger.LogInformation("Solicitação para obter informações do site: {SiteName}", siteName);
 
-                var result = await _iisManagementService.GetSiteInfoAsync(siteName);
+                var siteInfo = await _iisManagementService.GetDetailedSiteInfoAsync(siteName);
 
-                if (result.Success)
+                if (siteInfo != null)
                 {
                     return Ok(new
                     {
-                        message = result.Message,
-                        siteInfo = result.SiteInfo,
-                        physicalPath = result.PhysicalPath,
+                        message = $"Informações do site '{siteName}' obtidas com sucesso",
+                        site = siteInfo,
                         timestamp = DateTime.UtcNow
                     });
                 }
@@ -459,7 +325,7 @@ namespace CustomDeploy.Controllers
                 {
                     return NotFound(new
                     {
-                        message = result.Message,
+                        message = $"Site '{siteName}' não encontrado",
                         timestamp = DateTime.UtcNow
                     });
                 }
@@ -472,19 +338,371 @@ namespace CustomDeploy.Controllers
         }
 
         /// <summary>
-        /// Verifica se uma aplicação existe em um site específico
+        /// Atualiza um site existente no IIS
         /// </summary>
-        /// <param name="siteName">Nome do site</param>
-        /// <param name="applicationPath">Caminho da aplicação</param>
-        /// <returns>Status da aplicação</returns>
-        [HttpGet("sites/{siteName}/applications/{applicationPath}")]
-        public async Task<IActionResult> CheckApplication(string siteName, string applicationPath)
+        /// <param name="siteName">Nome do site a ser atualizado</param>
+        /// <param name="request">Dados de atualização</param>
+        /// <returns>Resultado da atualização</returns>
+        [HttpPut("sites/{siteName}")]
+        public async Task<IActionResult> UpdateSite(string siteName, [FromBody] UpdateSiteRequest request)
         {
             try
             {
-                _logger.LogInformation("Verificando aplicação: {SiteName}/{ApplicationPath}", siteName, applicationPath);
+                _logger.LogInformation("Solicitação para atualizar site IIS: {SiteName}", siteName);
 
-                var result = await _iisManagementService.CheckApplicationExistsAsync(siteName, applicationPath);
+                if (request == null)
+                {
+                    return BadRequest(new 
+                    { 
+                        message = "Dados de atualização são obrigatórios",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+
+                var result = await _iisManagementService.UpdateSiteAsync(siteName, request);
+
+                if (result.Success)
+                {
+                    return Ok(new
+                    {
+                        message = result.Message,
+                        site = result.Data,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return BadRequest(new
+                    {
+                        message = result.Message,
+                        errors = result.Errors,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao atualizar site IIS: {SiteName}", siteName);
+                return StatusCode(500, new 
+                { 
+                    message = "Erro interno do servidor ao atualizar site", 
+                    details = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+        }
+
+        /// <summary>
+        /// Remove um site do IIS
+        /// </summary>
+        /// <param name="siteName">Nome do site a ser removido</param>
+        /// <returns>Resultado da remoção</returns>
+        [HttpDelete("sites/{siteName}")]
+        public async Task<IActionResult> DeleteSite(string siteName)
+        {
+            try
+            {
+                _logger.LogInformation("Solicitação para remover site IIS: {SiteName}", siteName);
+
+                var result = await _iisManagementService.DeleteSiteAsync(siteName);
+
+                if (result.Success)
+                {
+                    return Ok(new
+                    {
+                        message = result.Message,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return BadRequest(new
+                    {
+                        message = result.Message,
+                        errors = result.Errors,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao remover site IIS: {SiteName}", siteName);
+                return StatusCode(500, new 
+                { 
+                    message = "Erro interno do servidor ao remover site", 
+                    details = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+        }
+
+        #endregion
+
+        #region Applications CRUD
+
+        /// <summary>
+        /// Cria uma nova aplicação em um site existente
+        /// </summary>
+        /// <param name="request">Dados da aplicação a ser criada</param>
+        /// <returns>Resultado da criação da aplicação</returns>
+        [HttpPost("applications")]
+        public async Task<IActionResult> CreateApplication([FromBody] CreateApplicationRequest request)
+        {
+            try
+            {
+                _logger.LogInformation("Solicitação para criar aplicação: {SiteName}/{AppPath}", request?.SiteName, request?.AppPath);
+
+                if (request == null)
+                {
+                    return BadRequest(new 
+                    { 
+                        message = "Dados da aplicação são obrigatórios",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+
+                // Validações básicas
+                var validationErrors = new List<string>();
+
+                if (string.IsNullOrWhiteSpace(request.SiteName))
+                    validationErrors.Add("Nome do site é obrigatório");
+
+                if (string.IsNullOrWhiteSpace(request.AppPath))
+                    validationErrors.Add("Caminho da aplicação é obrigatório");
+
+                if (string.IsNullOrWhiteSpace(request.PhysicalPath))
+                    validationErrors.Add("Caminho físico é obrigatório");
+
+                if (string.IsNullOrWhiteSpace(request.AppPoolName))
+                    validationErrors.Add("Nome do Application Pool é obrigatório");
+
+                // Garantir que o AppPath comece com /
+                if (!string.IsNullOrWhiteSpace(request.AppPath) && !request.AppPath.StartsWith("/"))
+                {
+                    request.AppPath = "/" + request.AppPath;
+                }
+
+                if (validationErrors.Any())
+                {
+                    return BadRequest(new 
+                    { 
+                        message = "Dados inválidos",
+                        errors = validationErrors,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+
+                var result = await _iisManagementService.CreateApplicationAsync(request);
+
+                if (result.Success)
+                {
+                    return CreatedAtAction(nameof(GetSiteApplications), new { siteName = request.SiteName }, new
+                    {
+                        message = result.Message,
+                        application = result.Data,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return BadRequest(new
+                    {
+                        message = result.Message,
+                        errors = result.Errors,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao criar aplicação: {SiteName}/{AppPath}", request?.SiteName, request?.AppPath);
+                return StatusCode(500, new 
+                { 
+                    message = "Erro interno do servidor ao criar aplicação", 
+                    details = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+        }
+
+        /// <summary>
+        /// Lista todas as aplicações de um site específico
+        /// </summary>
+        /// <param name="siteName">Nome do site</param>
+        /// <returns>Lista de aplicações do site</returns>
+        [HttpGet("sites/{siteName}/applications")]
+        public async Task<IActionResult> GetSiteApplications(string siteName)
+        {
+            try
+            {
+                _logger.LogInformation("Solicitação para listar aplicações do site: {SiteName}", siteName);
+
+                var result = await _iisManagementService.GetSiteApplicationsAsync(siteName);
+
+                if (result.Success)
+                {
+                    return Ok(new
+                    {
+                        message = result.Message,
+                        applications = result.Data,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return BadRequest(new
+                    {
+                        message = result.Message,
+                        errors = result.Errors,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao listar aplicações do site: {SiteName}", siteName);
+                return StatusCode(500, new 
+                { 
+                    message = "Erro interno do servidor ao listar aplicações", 
+                    details = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+        }
+
+        /// <summary>
+        /// Atualiza uma aplicação existente
+        /// </summary>
+        /// <param name="siteName">Nome do site</param>
+        /// <param name="appPath">Caminho da aplicação</param>
+        /// <param name="request">Dados de atualização</param>
+        /// <returns>Resultado da atualização</returns>
+        [HttpPut("sites/{siteName}/applications/{*appPath}")]
+        public async Task<IActionResult> UpdateApplication(string siteName, string appPath, [FromBody] UpdateApplicationRequest request)
+        {
+            try
+            {
+                // Garantir que o appPath comece com /
+                if (!appPath.StartsWith("/"))
+                {
+                    appPath = "/" + appPath;
+                }
+
+                _logger.LogInformation("Solicitação para atualizar aplicação: {SiteName}/{AppPath}", siteName, appPath);
+
+                if (request == null)
+                {
+                    return BadRequest(new 
+                    { 
+                        message = "Dados de atualização são obrigatórios",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+
+                var result = await _iisManagementService.UpdateApplicationAsync(siteName, appPath, request);
+
+                if (result.Success)
+                {
+                    return Ok(new
+                    {
+                        message = result.Message,
+                        application = result.Data,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return BadRequest(new
+                    {
+                        message = result.Message,
+                        errors = result.Errors,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao atualizar aplicação: {SiteName}/{AppPath}", siteName, appPath);
+                return StatusCode(500, new 
+                { 
+                    message = "Erro interno do servidor ao atualizar aplicação", 
+                    details = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+        }
+
+        /// <summary>
+        /// Remove uma aplicação de um site
+        /// </summary>
+        /// <param name="siteName">Nome do site</param>
+        /// <param name="appPath">Caminho da aplicação</param>
+        /// <returns>Resultado da remoção</returns>
+        [HttpDelete("sites/{siteName}/applications/{*appPath}")]
+        public async Task<IActionResult> DeleteApplication(string siteName, string appPath)
+        {
+            try
+            {
+                // Garantir que o appPath comece com /
+                if (!appPath.StartsWith("/"))
+                {
+                    appPath = "/" + appPath;
+                }
+
+                _logger.LogInformation("Solicitação para remover aplicação: {SiteName}/{AppPath}", siteName, appPath);
+
+                var result = await _iisManagementService.DeleteApplicationAsync(siteName, appPath);
+
+                if (result.Success)
+                {
+                    return Ok(new
+                    {
+                        message = result.Message,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return BadRequest(new
+                    {
+                        message = result.Message,
+                        errors = result.Errors,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao remover aplicação: {SiteName}/{AppPath}", siteName, appPath);
+                return StatusCode(500, new 
+                { 
+                    message = "Erro interno do servidor ao remover aplicação", 
+                    details = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+        }
+
+        /// <summary>
+        /// Verifica se uma aplicação existe em um site específico
+        /// </summary>
+        /// <param name="siteName">Nome do site</param>
+        /// <param name="appPath">Caminho da aplicação</param>
+        /// <returns>Status da aplicação</returns>
+        [HttpGet("sites/{siteName}/applications/check/{*appPath}")]
+        public async Task<IActionResult> CheckApplication(string siteName, string appPath)
+        {
+            try
+            {
+                // Garantir que o appPath comece com /
+                if (!appPath.StartsWith("/"))
+                {
+                    appPath = "/" + appPath;
+                }
+
+                _logger.LogInformation("Verificando aplicação: {SiteName}/{AppPath}", siteName, appPath);
+
+                var result = await _iisManagementService.CheckApplicationExistsAsync(siteName, appPath);
 
                 if (result.Success)
                 {
@@ -507,9 +725,247 @@ namespace CustomDeploy.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao verificar aplicação: {SiteName}/{ApplicationPath}", siteName, applicationPath);
+                _logger.LogError(ex, "Erro ao verificar aplicação: {SiteName}/{AppPath}", siteName, appPath);
                 return StatusCode(500, new { message = "Erro interno", details = ex.Message });
             }
         }
+
+        #endregion
+
+        #region Application Pools CRUD
+
+        /// <summary>
+        /// Cria um novo Application Pool
+        /// </summary>
+        /// <param name="request">Dados do Application Pool a ser criado</param>
+        /// <returns>Resultado da criação do Application Pool</returns>
+        [HttpPost("app-pools")]
+        public async Task<IActionResult> CreateAppPool([FromBody] CreateAppPoolRequest request)
+        {
+            try
+            {
+                _logger.LogInformation("Solicitação para criar Application Pool: {PoolName}", request?.PoolName);
+
+                if (request == null)
+                {
+                    return BadRequest(new 
+                    { 
+                        message = "Dados do Application Pool são obrigatórios",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+
+                // Validações básicas
+                var validationErrors = new List<string>();
+
+                if (string.IsNullOrWhiteSpace(request.PoolName))
+                    validationErrors.Add("Nome do Application Pool é obrigatório");
+
+                if (!string.IsNullOrWhiteSpace(request.PipelineMode) && 
+                    !request.PipelineMode.Equals("Classic", StringComparison.OrdinalIgnoreCase) &&
+                    !request.PipelineMode.Equals("Integrated", StringComparison.OrdinalIgnoreCase))
+                {
+                    validationErrors.Add("Pipeline Mode deve ser 'Classic' ou 'Integrated'");
+                }
+
+                if (validationErrors.Any())
+                {
+                    return BadRequest(new 
+                    { 
+                        message = "Dados inválidos",
+                        errors = validationErrors,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+
+                var result = await _iisManagementService.CreateAppPoolAsync(request);
+
+                if (result.Success)
+                {
+                    return CreatedAtAction(nameof(GetAppPools), new
+                    {
+                        message = result.Message,
+                        appPool = result.Data,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return BadRequest(new
+                    {
+                        message = result.Message,
+                        errors = result.Errors,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao criar Application Pool: {PoolName}", request?.PoolName);
+                return StatusCode(500, new 
+                { 
+                    message = "Erro interno do servidor ao criar Application Pool", 
+                    details = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+        }
+
+        /// <summary>
+        /// Lista todos os Application Pools do IIS
+        /// </summary>
+        /// <returns>Lista de Application Pools existentes</returns>
+        [HttpGet("app-pools")]
+        public async Task<IActionResult> GetAppPools()
+        {
+            try
+            {
+                _logger.LogInformation("Solicitação para listar Application Pools IIS");
+
+                var result = await _iisManagementService.GetAllAppPoolsAsync();
+
+                if (result.Success)
+                {
+                    return Ok(new
+                    {
+                        message = result.Message,
+                        appPools = result.Data,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return StatusCode(500, new
+                    {
+                        message = result.Message,
+                        errors = result.Errors,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao listar Application Pools IIS");
+                return StatusCode(500, new 
+                { 
+                    message = "Erro interno do servidor ao listar Application Pools", 
+                    details = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+        }
+
+        /// <summary>
+        /// Atualiza um Application Pool existente
+        /// </summary>
+        /// <param name="poolName">Nome do Application Pool</param>
+        /// <param name="request">Dados de atualização</param>
+        /// <returns>Resultado da atualização</returns>
+        [HttpPut("app-pools/{poolName}")]
+        public async Task<IActionResult> UpdateAppPool(string poolName, [FromBody] UpdateAppPoolRequest request)
+        {
+            try
+            {
+                _logger.LogInformation("Solicitação para atualizar Application Pool: {PoolName}", poolName);
+
+                if (request == null)
+                {
+                    return BadRequest(new 
+                    { 
+                        message = "Dados de atualização são obrigatórios",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+
+                // Validar Pipeline Mode se fornecido
+                if (!string.IsNullOrWhiteSpace(request.PipelineMode) && 
+                    !request.PipelineMode.Equals("Classic", StringComparison.OrdinalIgnoreCase) &&
+                    !request.PipelineMode.Equals("Integrated", StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest(new 
+                    { 
+                        message = "Pipeline Mode deve ser 'Classic' ou 'Integrated'",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+
+                var result = await _iisManagementService.UpdateAppPoolAsync(poolName, request);
+
+                if (result.Success)
+                {
+                    return Ok(new
+                    {
+                        message = result.Message,
+                        appPool = result.Data,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return BadRequest(new
+                    {
+                        message = result.Message,
+                        errors = result.Errors,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao atualizar Application Pool: {PoolName}", poolName);
+                return StatusCode(500, new 
+                { 
+                    message = "Erro interno do servidor ao atualizar Application Pool", 
+                    details = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+        }
+
+        /// <summary>
+        /// Remove um Application Pool (apenas se não estiver em uso)
+        /// </summary>
+        /// <param name="poolName">Nome do Application Pool</param>
+        /// <returns>Resultado da remoção</returns>
+        [HttpDelete("app-pools/{poolName}")]
+        public async Task<IActionResult> DeleteAppPool(string poolName)
+        {
+            try
+            {
+                _logger.LogInformation("Solicitação para remover Application Pool: {PoolName}", poolName);
+
+                var result = await _iisManagementService.DeleteAppPoolAsync(poolName);
+
+                if (result.Success)
+                {
+                    return Ok(new
+                    {
+                        message = result.Message,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return BadRequest(new
+                    {
+                        message = result.Message,
+                        errors = result.Errors,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao remover Application Pool: {PoolName}", poolName);
+                return StatusCode(500, new 
+                { 
+                    message = "Erro interno do servidor ao remover Application Pool", 
+                    details = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+        }
+
+        #endregion
     }
 }

@@ -21,6 +21,11 @@ namespace CustomDeploy.Models
         public bool CanExecuteIISCommands { get; set; }
 
         /// <summary>
+        /// Indica se a aplicação pode gerenciar IIS
+        /// </summary>
+        public bool CanManageIIS { get; set; }
+
+        /// <summary>
         /// Lista de instruções para resolver problemas de permissão
         /// </summary>
         public List<string> Instructions { get; set; } = new List<string>();
@@ -28,7 +33,7 @@ namespace CustomDeploy.Models
         /// <summary>
         /// Indica se todas as permissões necessárias estão disponíveis
         /// </summary>
-        public bool AllPermissionsGranted => CanCreateFolders && CanMoveFiles && CanExecuteIISCommands;
+        public bool AllPermissionsGranted => CanCreateFolders && CanMoveFiles && CanExecuteIISCommands && CanManageIIS;
 
         /// <summary>
         /// Detalhes dos testes realizados

@@ -1,0 +1,215 @@
+### File Manager Controller Test Suite
+### Base URL: http://localhost:5092
+### Requer autenticação JWT
+
+##################################################
+### 1. AUTENTICAÇÃO - Obter JWT Token
+POST http://localhost:5092/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "password"
+}
+
+### Copie o token da resposta e use nas próximas requisições
+### Authorization: Bearer {token}
+
+##################################################
+### 2. SISTEMA DE ARQUIVOS - Navegação Básica
+
+### 2.1 Navegar na raiz do sistema (C:\)
+GET http://localhost:5092/api/filemanager
+Authorization: Bearer {token_aqui}
+
+### 2.2 Navegar em um diretório específico
+GET http://localhost:5092/api/filemanager?path=C:\inetpub
+Authorization: Bearer {token_aqui}
+
+### 2.3 Navegar com filtros e ordenação
+GET http://localhost:5092/api/filemanager?path=C:\inetpub\wwwroot&includeHidden=true&sortBy=size&ascending=false
+Authorization: Bearer {token_aqui}
+
+### 2.4 Filtrar apenas arquivos .txt
+GET http://localhost:5092/api/filemanager?path=C:\&fileExtensionFilter=.txt
+Authorization: Bearer {token_aqui}
+
+### 2.5 Ordenar por data de modificação
+GET http://localhost:5092/api/filemanager?path=C:\&sortBy=date&ascending=false
+Authorization: Bearer {token_aqui}
+
+##################################################
+### 3. INFORMAÇÕES DE ITENS ESPECÍFICOS
+
+### 3.1 Obter informações de um arquivo específico
+GET http://localhost:5092/api/filemanager/item?path=C:\Windows\System.ini
+Authorization: Bearer {token_aqui}
+
+### 3.2 Obter informações de um diretório específico
+GET http://localhost:5092/api/filemanager/item?path=C:\Program Files
+Authorization: Bearer {token_aqui}
+
+##################################################
+### 4. UNIDADES DE DISCO
+
+### 4.1 Listar todas as unidades de disco disponíveis
+GET http://localhost:5092/api/filemanager/drives
+Authorization: Bearer {token_aqui}
+
+##################################################
+### 5. VALIDAÇÃO DE CAMINHOS
+
+### 5.1 Validar caminho válido
+GET http://localhost:5092/api/filemanager/validate?path=C:\inetpub
+Authorization: Bearer {token_aqui}
+
+### 5.2 Validar caminho inválido
+GET http://localhost:5092/api/filemanager/validate?path=C:\caminho_inexistente
+Authorization: Bearer {token_aqui}
+
+### 5.3 Validar caminho bloqueado (deve retornar isBlocked=true)
+GET http://localhost:5092/api/filemanager/validate?path=C:\Windows\System32
+Authorization: Bearer {token_aqui}
+
+##################################################
+### 6. INFORMAÇÕES DO SISTEMA
+
+### 6.1 Obter informações gerais do sistema
+GET http://localhost:5092/api/filemanager/system-info
+Authorization: Bearer {token_aqui}
+
+##################################################
+### 7. TESTES DE SEGURANÇA E VALIDAÇÃO
+
+### 7.1 Tentar acessar diretório bloqueado (deve retornar erro)
+GET http://localhost:5092/api/filemanager?path=C:\Windows\System32
+Authorization: Bearer {token_aqui}
+
+### 7.2 Tentar acessar sem autenticação (deve retornar 401)
+GET http://localhost:5092/api/filemanager
+
+### 7.3 Validar sem parâmetro path (deve retornar erro)
+GET http://localhost:5092/api/filemanager/validate
+Authorization: Bearer {token_aqui}
+
+### 7.4 Obter informações de item sem parâmetro path (deve retornar erro)
+GET http://localhost:5092/api/filemanager/item
+Authorization: Bearer {token_aqui}
+
+##################################################
+### 8. CENÁRIOS DE USO REAL
+
+### 8.1 Navegar na pasta do IIS (wwwroot)
+GET http://localhost:5092/api/filemanager?path=C:\inetpub\wwwroot
+Authorization: Bearer {token_aqui}
+
+### 8.2 Navegar na pasta de usuários
+GET http://localhost:5092/api/filemanager?path=C:\Users
+Authorization: Bearer {token_aqui}
+
+### 8.3 Navegar na pasta de arquivos de programa
+GET http://localhost:5092/api/filemanager?path=C:\Program Files
+Authorization: Bearer {token_aqui}
+
+### 8.4 Buscar arquivos de log
+GET http://localhost:5092/api/filemanager?path=C:\&fileExtensionFilter=.log&sortBy=date&ascending=false
+Authorization: Bearer {token_aqui}
+
+### 8.5 Buscar arquivos de configuração
+GET http://localhost:5092/api/filemanager?path=C:\&fileExtensionFilter=.config&sortBy=name
+Authorization: Bearer {token_aqui}
+
+##################################################
+### 9. TESTES DE PERFORMANCE E LIMITES
+
+### 9.1 Navegar em diretório com muitos arquivos
+GET http://localhost:5092/api/filemanager?path=C:\Windows&includeHidden=true
+Authorization: Bearer {token_aqui}
+
+### 9.2 Teste com caminho muito longo
+GET http://localhost:5092/api/filemanager?path=C:\Program Files\WindowsApps
+Authorization: Bearer {token_aqui}
+
+##################################################
+### 10. EXEMPLOS DE RESPOSTAS ESPERADAS
+
+### Resposta de navegação bem-sucedida:
+# {
+#   "currentPath": "C:\\inetpub\\wwwroot",
+#   "parentPath": "C:\\inetpub",
+#   "items": [
+#     {
+#       "name": "aspnet_client",
+#       "fullPath": "C:\\inetpub\\wwwroot\\aspnet_client",
+#       "type": "directory",
+#       "size": null,
+#       "lastModified": "2025-08-01T10:30:00",
+#       "isAccessible": true,
+#       "extension": null
+#     },
+#     {
+#       "name": "iisstart.htm",
+#       "fullPath": "C:\\inetpub\\wwwroot\\iisstart.htm",
+#       "type": "file",
+#       "size": 696,
+#       "lastModified": "2025-07-15T14:20:00",
+#       "isAccessible": true,
+#       "extension": ".htm"
+#     }
+#   ],
+#   "totalItems": 2,
+#   "totalDirectories": 1,
+#   "totalFiles": 1,
+#   "isAccessible": true,
+#   "errorMessage": null,
+#   "timestamp": "2025-08-03T16:00:00Z"
+# }
+
+### Resposta de drives disponíveis:
+# {
+#   "message": "Encontradas 2 unidades de disco",
+#   "drives": [
+#     {
+#       "name": "C:\\ (Disco Local)",
+#       "fullPath": "C:\\",
+#       "type": "drive",
+#       "size": 1000000000000,
+#       "lastModified": "2025-08-03T16:00:00",
+#       "isAccessible": true,
+#       "extension": null
+#     }
+#   ],
+#   "timestamp": "2025-08-03T16:00:00Z"
+# }
+
+##################################################
+### NOTAS IMPORTANTES:
+
+### 🔐 SEGURANÇA:
+### - Todos os endpoints requerem autenticação JWT
+### - Apenas usuários administradores podem acessar o sistema de arquivos
+### - Caminhos restritos são bloqueados automaticamente
+### - Logs detalhados são gerados para todas as operações
+
+### 📁 CAMINHOS BLOQUEADOS:
+### - C:\Windows\System32
+### - C:\Windows\SysWOW64
+### - C:\Windows\security
+### - C:\System Volume Information
+### - C:\$Recycle.Bin
+### - E outros caminhos sensíveis do sistema
+
+### 🎯 PARÂMETROS DE ORDENAÇÃO:
+### - sortBy: "name", "size", "date", "type"
+### - ascending: true (crescente) ou false (decrescente)
+
+### 📊 FILTROS DISPONÍVEIS:
+### - includeHidden: true/false (arquivos ocultos)
+### - fileExtensionFilter: extensão específica (.txt, .log, .config, etc.)
+
+### 🚀 CASOS DE USO:
+### - Exploração de arquivos para deployment
+### - Navegação em pastas do IIS
+### - Busca de arquivos de configuração
+### - Monitoramento de logs
+### - Backup e gerenciamento de arquivos

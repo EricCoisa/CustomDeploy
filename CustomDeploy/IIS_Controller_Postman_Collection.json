@@ -1,0 +1,415 @@
+{
+  "info": {
+    "name": "IIS Controller API",
+    "description": "Coleção completa para testar todos os endpoints do IIS Controller",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{jwt_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5092",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Autenticação",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('jwt_token', response.token);",
+                  "    console.log('Token JWT salvo na variável de coleção');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"password\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Verificações de Permissão",
+      "item": [
+        {
+          "name": "Status de Administrador",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/iis/admin-status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "iis", "admin-status"]
+            }
+          }
+        },
+        {
+          "name": "Verificar Permissões IIS",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/iis/permissions",
+              "host": ["{{base_url}}"],
+              "path": ["api", "iis", "permissions"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sites IIS",
+      "item": [
+        {
+          "name": "Listar Todos os Sites",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/iis/sites",
+              "host": ["{{base_url}}"],
+              "path": ["api", "iis", "sites"]
+            }
+          }
+        },
+        {
+          "name": "Obter Detalhes de um Site",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/iis/sites/Default Web Site",
+              "host": ["{{base_url}}"],
+              "path": ["api", "iis", "sites", "Default Web Site"]
+            }
+          }
+        },
+        {
+          "name": "Criar Novo Site",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"SiteName\": \"MeuNovoSite\",\n  \"BindingInformation\": \"0.0.0.0:8080:\",\n  \"PhysicalPath\": \"C:\\\\inetpub\\\\wwwroot\\\\meunovosite\",\n  \"AppPoolName\": \"DefaultAppPool\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/iis/sites",
+              "host": ["{{base_url}}"],
+              "path": ["api", "iis", "sites"]
+            }
+          }
+        },
+        {
+          "name": "Atualizar Site",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"PhysicalPath\": \"C:\\\\inetpub\\\\wwwroot\\\\meunovosite-atualizado\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/iis/sites/MeuNovoSite",
+              "host": ["{{base_url}}"],
+              "path": ["api", "iis", "sites", "MeuNovoSite"]
+            }
+          }
+        },
+        {
+          "name": "Deletar Site",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/iis/sites/MeuNovoSite",
+              "host": ["{{base_url}}"],
+              "path": ["api", "iis", "sites", "MeuNovoSite"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Aplicações IIS",
+      "item": [
+        {
+          "name": "Listar Aplicações de um Site",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/iis/sites/Default Web Site/applications",
+              "host": ["{{base_url}}"],
+              "path": ["api", "iis", "sites", "Default Web Site", "applications"]
+            }
+          }
+        },
+        {
+          "name": "Criar Nova Aplicação",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"SiteName\": \"Default Web Site\",\n  \"AppPath\": \"/minhaapp\",\n  \"PhysicalPath\": \"C:\\\\inetpub\\\\wwwroot\\\\minhaapp\",\n  \"AppPoolName\": \"DefaultAppPool\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/iis/applications",
+              "host": ["{{base_url}}"],
+              "path": ["api", "iis", "applications"]
+            }
+          }
+        },
+        {
+          "name": "Atualizar Aplicação",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"PhysicalPath\": \"C:\\\\inetpub\\\\wwwroot\\\\minhaapp-atualizada\",\n  \"AppPoolName\": \"DefaultAppPool\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/iis/sites/Default Web Site/applications/minhaapp",
+              "host": ["{{base_url}}"],
+              "path": ["api", "iis", "sites", "Default Web Site", "applications", "minhaapp"]
+            }
+          }
+        },
+        {
+          "name": "Deletar Aplicação",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/iis/sites/Default Web Site/applications/minhaapp",
+              "host": ["{{base_url}}"],
+              "path": ["api", "iis", "sites", "Default Web Site", "applications", "minhaapp"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Application Pools",
+      "item": [
+        {
+          "name": "Listar Todos os Application Pools",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/iis/app-pools",
+              "host": ["{{base_url}}"],
+              "path": ["api", "iis", "app-pools"]
+            }
+          }
+        },
+        {
+          "name": "Obter Detalhes de um Application Pool",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/iis/app-pools/DefaultAppPool",
+              "host": ["{{base_url}}"],
+              "path": ["api", "iis", "app-pools", "DefaultAppPool"]
+            }
+          }
+        },
+        {
+          "name": "Criar Novo Application Pool",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"PoolName\": \"MeuNovoPool\",\n  \"RuntimeVersion\": \"v4.0\",\n  \"PipelineMode\": \"Integrated\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/iis/app-pools",
+              "host": ["{{base_url}}"],
+              "path": ["api", "iis", "app-pools"]
+            }
+          }
+        },
+        {
+          "name": "Atualizar Application Pool",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"RuntimeVersion\": \"No Managed Code\",\n  \"PipelineMode\": \"Classic\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/iis/app-pools/MeuNovoPool",
+              "host": ["{{base_url}}"],
+              "path": ["api", "iis", "app-pools", "MeuNovoPool"]
+            }
+          }
+        },
+        {
+          "name": "Deletar Application Pool",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/iis/app-pools/MeuNovoPool",
+              "host": ["{{base_url}}"],
+              "path": ["api", "iis", "app-pools", "MeuNovoPool"]
+            }
+          }
+        },
+        {
+          "name": "Iniciar Application Pool",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/api/iis/app-pools/DefaultAppPool/start",
+              "host": ["{{base_url}}"],
+              "path": ["api", "iis", "app-pools", "DefaultAppPool", "start"]
+            }
+          }
+        },
+        {
+          "name": "Parar Application Pool",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/api/iis/app-pools/DefaultAppPool/stop",
+              "host": ["{{base_url}}"],
+              "path": ["api", "iis", "app-pools", "DefaultAppPool", "stop"]
+            }
+          }
+        },
+        {
+          "name": "Reciclar Application Pool",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/api/iis/app-pools/DefaultAppPool/recycle",
+              "host": ["{{base_url}}"],
+              "path": ["api", "iis", "app-pools", "DefaultAppPool", "recycle"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Testes de Validação",
+      "item": [
+        {
+          "name": "Criar Site com Dados Inválidos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"SiteName\": \"\",\n  \"BindingInformation\": \"\",\n  \"PhysicalPath\": \"\",\n  \"AppPoolName\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/iis/sites",
+              "host": ["{{base_url}}"],
+              "path": ["api", "iis", "sites"]
+            }
+          }
+        },
+        {
+          "name": "Acessar Recurso Inexistente",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/iis/sites/SiteInexistente",
+              "host": ["{{base_url}}"],
+              "path": ["api", "iis", "sites", "SiteInexistente"]
+            }
+          }
+        },
+        {
+          "name": "Operação Sem Token JWT",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/iis/sites",
+              "host": ["{{base_url}}"],
+              "path": ["api", "iis", "sites"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

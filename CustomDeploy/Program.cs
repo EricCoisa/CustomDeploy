@@ -26,9 +26,18 @@ builder.Services.AddHttpClient<GitHubService>();
 // Registrar o AdministratorService
 builder.Services.AddScoped<AdministratorService>();
 
+// Registrar o FileManagerService
+builder.Services.AddScoped<IFileManagerService, FileManagerService>();
+
 // Configure JWT Settings
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>();
+
+// Validar se as configurações JWT estão presentes
+if (jwtSettings == null || string.IsNullOrWhiteSpace(jwtSettings.Key))
+{
+    throw new InvalidOperationException("JWT configuration is missing or invalid. Please check your appsettings.json file.");
+}
 
 // Configure GitHub Settings
 builder.Services.Configure<GitHubSettings>(builder.Configuration.GetSection("GitHubSettings"));
@@ -47,9 +56,9 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtSettings?.Issuer,
-        ValidAudience = jwtSettings?.Audience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings?.Key ?? string.Empty)),
+        ValidIssuer = jwtSettings.Issuer,
+        ValidAudience = jwtSettings.Audience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key)),
         ClockSkew = TimeSpan.Zero
     };
 });
