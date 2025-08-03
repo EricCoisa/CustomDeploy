@@ -602,7 +602,12 @@ namespace CustomDeploy.Services
                 var normalizedTargetPath = Path.GetFullPath(finalTargetPath);
                 
                 // Para deploys IIS, usar o nome do site + targetPath como nome do deploy
-                var deployName = $"{request.IisSiteName}/{request.TargetPath}";
+                var deployName = string.IsNullOrWhiteSpace(request.TargetPath) 
+                    ? request.IisSiteName 
+                    : $"{request.IisSiteName}/{request.TargetPath.Trim('/', '\\')}";
+                
+                // Remover barras extras no final
+                deployName = deployName.TrimEnd('/', '\\');
                 
                 var metadata = new DeployMetadata
                 {
@@ -1130,6 +1135,102 @@ namespace CustomDeploy.Services
             {
                 _logger.LogWarning(ex, "Erro ao extrair caminho relativo de: {FullPath}", fullPath);
                 return Path.GetFileName(fullPath);
+            }
+        }
+
+        /// <summary>
+        /// Cria metadados para uma publicação sem executar deploy
+        /// </summary>
+        /// <param name="name">Nome único do deploy</param>
+        /// <param name="repository">URL do repositório</param>
+        /// <param name="branch">Branch do repositório</param>
+        /// <param name="buildCommand">Comando de build</param>
+        /// <param name="targetPath">Caminho de destino completo</param>
+        /// <returns>Resultado da operação</returns>
+        public (bool Success, string Message, DeployMetadata? Metadata) CreateMetadataOnly(
+            string name, string repository, string branch, string buildCommand, string targetPath)
+        {
+            try
+            {
+                _logger.LogInformation("Criando metadados apenas: {Name} -> {TargetPath}", name, targetPath);
+
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    return (false, "Nome é obrigatório", null);
+                }
+
+                if (string.IsNullOrWhiteSpace(repository))
+                {
+                    return (false, "Repository é obrigatório", null);
+                }
+
+                if (string.IsNullOrWhiteSpace(branch))
+                {
+                    return (false, "Branch é obrigatório", null);
+                }
+
+                if (string.IsNullOrWhiteSpace(buildCommand))
+                {
+                    return (false, "BuildCommand é obrigatório", null);
+                }
+
+                if (string.IsNullOrWhiteSpace(targetPath))
+                {
+                    return (false, "TargetPath é obrigatório", null);
+                }
+
+                var normalizedTargetPath = Path.GetFullPath(targetPath);
+                
+                var metadata = new DeployMetadata
+                {
+                    Name = name.Trim(),
+                    Repository = repository.Trim(),
+                    Branch = branch.Trim(),
+                    BuildCommand = buildCommand.Trim(),
+                    TargetPath = normalizedTargetPath,
+                    DeployedAt = DateTime.MinValue, // Usar MinValue para indicar que nunca foi deployed
+                    Exists = Directory.Exists(normalizedTargetPath)
+                };
+
+                // Thread-safe operation para ler/escrever o arquivo de metadados
+                lock (_deploysFileLock)
+                {
+                    var deploysList = LoadAllDeployMetadata();
+                    
+                    // Verificar se já existe metadado com o mesmo nome
+                    var existingByName = deploysList.FirstOrDefault(d => 
+                        string.Equals(d.Name, metadata.Name, StringComparison.OrdinalIgnoreCase));
+                    
+                    if (existingByName != null)
+                    {
+                        return (false, $"Já existe um metadado com o nome '{metadata.Name}'", null);
+                    }
+
+                    // Verificar se já existe metadado para o mesmo caminho
+                    var existingByPath = deploysList.FirstOrDefault(d => 
+                        string.Equals(d.TargetPath, normalizedTargetPath, StringComparison.OrdinalIgnoreCase));
+                    
+                    if (existingByPath != null)
+                    {
+                        return (false, $"Já existe um metadado para o caminho '{normalizedTargetPath}' (nome: '{existingByPath.Name}')", null);
+                    }
+                    
+                    // Adicionar nova entrada
+                    deploysList.Add(metadata);
+                    
+                    // Salvar de volta
+                    SaveAllDeployMetadata(deploysList);
+                }
+
+                _logger.LogInformation("Metadados criados com sucesso: {Name} -> {TargetPath}", 
+                    metadata.Name, normalizedTargetPath);
+                
+                return (true, "Metadados criados com sucesso", metadata);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao criar metadados: {Name}", name);
+                return (false, $"Erro interno ao criar metadados: {ex.Message}", null);
             }
         }
 

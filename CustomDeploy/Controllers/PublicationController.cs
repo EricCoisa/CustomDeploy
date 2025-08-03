@@ -13,12 +13,14 @@ namespace CustomDeploy.Controllers
         private readonly ILogger<PublicationController> _logger;
         private readonly PublicationService _publicationService;
         private readonly DeployService _deployService;
+        private readonly IISManagementService _iisManagementService;
 
-        public PublicationController(ILogger<PublicationController> logger, PublicationService publicationService, DeployService deployService)
+        public PublicationController(ILogger<PublicationController> logger, PublicationService publicationService, DeployService deployService, IISManagementService iisManagementService)
         {
             _logger = logger;
             _publicationService = publicationService;
             _deployService = deployService;
+            _iisManagementService = iisManagementService;
         }
 
         /// <summary>
@@ -36,7 +38,7 @@ namespace CustomDeploy.Controllers
 
                 var response = new
                 {
-                    message = "Publicações listadas com sucesso",
+                    message = "Publicações listadas com sucesso (IIS como fonte de verdade)",
                     count = publications.Count,
                     publications = publications,
                     timestamp = DateTime.UtcNow
@@ -107,27 +109,31 @@ namespace CustomDeploy.Controllers
 
                 var publications = await _publicationService.GetPublicationsAsync();
 
-                // Separar publicações existentes e removidas
-                var existingPublications = publications.Where(p => p.Exists).ToList();
-                var removedPublications = publications.Where(p => !p.Exists).ToList();
+                // Separar publicações com e sem metadados
+                var withMetadata = publications.Where(p => p.HasMetadata).ToList();
+                var withoutMetadata = publications.Where(p => !p.HasMetadata).ToList();
+                var sites = publications.Where(p => p.SubApplication == null).ToList();
+                var applications = publications.Where(p => p.SubApplication != null).ToList();
 
                 var stats = new
                 {
                     totalPublications = publications.Count,
-                    existingPublications = existingPublications.Count,
-                    removedPublications = removedPublications.Count,
-                    totalSizeMB = Math.Round(existingPublications.Sum(p => p.SizeMB), 2), // Apenas apps existentes
-                    averageSizeMB = existingPublications.Count > 0 ? Math.Round(existingPublications.Average(p => p.SizeMB), 2) : 0,
-                    latestPublication = publications.FirstOrDefault(),
-                    oldestPublication = publications.LastOrDefault(),
-                    largestPublication = existingPublications.OrderByDescending(p => p.SizeMB).FirstOrDefault(),
-                    smallestPublication = existingPublications.Where(p => p.SizeMB > 0).OrderBy(p => p.SizeMB).FirstOrDefault(),
-                    recentlyRemoved = removedPublications.OrderByDescending(p => p.LastModified).Take(5).ToList()
+                    sites = sites.Count,
+                    applications = applications.Count,
+                    withMetadata = withMetadata.Count,
+                    withoutMetadata = withoutMetadata.Count,
+                    totalSizeMB = Math.Round(publications.Sum(p => p.SizeMB), 2),
+                    averageSizeMB = publications.Count > 0 ? Math.Round(publications.Average(p => p.SizeMB), 2) : 0,
+                    latestDeployment = withMetadata.Where(p => p.DeployedAt.HasValue).OrderByDescending(p => p.DeployedAt).FirstOrDefault(),
+                    oldestDeployment = withMetadata.Where(p => p.DeployedAt.HasValue).OrderBy(p => p.DeployedAt).FirstOrDefault(),
+                    largestPublication = publications.OrderByDescending(p => p.SizeMB).FirstOrDefault(),
+                    smallestPublication = publications.Where(p => p.SizeMB > 0).OrderBy(p => p.SizeMB).FirstOrDefault(),
+                    sitesWithoutMetadata = withoutMetadata.Take(5).ToList()
                 };
 
                 var response = new
                 {
-                    message = "Estatísticas obtidas com sucesso",
+                    message = "Estatísticas obtidas com sucesso (baseadas no IIS)",
                     stats = stats,
                     timestamp = DateTime.UtcNow
                 };
@@ -339,6 +345,183 @@ namespace CustomDeploy.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao atualizar metadados da publicação: {Name}", name);
+                return StatusCode(500, new { message = "Erro interno do servidor", details = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Cria metadados para uma publicação sem executar deploy
+        /// </summary>
+        /// <param name="request">Dados dos metadados a serem criados</param>
+        /// <returns>Metadados criados</returns>
+        [HttpPost("publications/metadata")]
+        public async Task<IActionResult> CreateMetadados([FromBody] CreateMetadataRequest request)
+        {
+            try
+            {
+                _logger.LogInformation("Solicitação para criar metadados: {IisSiteName}/{SubPath}", 
+                    request.IisSiteName, request.SubPath ?? "");
+
+                // Validar dados obrigatórios
+                if (request == null)
+                {
+                    return BadRequest(new { message = "Dados são obrigatórios" });
+                }
+
+                if (string.IsNullOrWhiteSpace(request.IisSiteName))
+                {
+                    return BadRequest(new { message = "IisSiteName é obrigatório" });
+                }
+
+                if (string.IsNullOrWhiteSpace(request.RepoUrl))
+                {
+                    return BadRequest(new { message = "RepoUrl é obrigatório" });
+                }
+
+                if (string.IsNullOrWhiteSpace(request.Branch))
+                {
+                    return BadRequest(new { message = "Branch é obrigatório" });
+                }
+
+                if (string.IsNullOrWhiteSpace(request.BuildCommand))
+                {
+                    return BadRequest(new { message = "BuildCommand é obrigatório" });
+                }
+
+                if (string.IsNullOrWhiteSpace(request.BuildOutput))
+                {
+                    return BadRequest(new { message = "BuildOutput é obrigatório" });
+                }
+
+                // Verificar se o site existe no IIS
+                var sitesResult = await _iisManagementService.GetAllSitesAsync();
+                if (!sitesResult.Success)
+                {
+                    return StatusCode(500, new { message = "Erro ao verificar sites no IIS", details = sitesResult.Message });
+                }
+
+                var targetSite = sitesResult.Sites.FirstOrDefault(s => 
+                {
+                    var siteData = System.Text.Json.JsonSerializer.Serialize(s);
+                    var siteInfo = System.Text.Json.JsonSerializer.Deserialize<SiteInfo>(siteData);
+                    return string.Equals(siteInfo?.Name, request.IisSiteName, StringComparison.OrdinalIgnoreCase);
+                });
+
+                if (targetSite == null)
+                {
+                    return BadRequest(new { message = $"Site IIS '{request.IisSiteName}' não encontrado" });
+                }
+
+                // Deserializar informações do site
+                var siteJson = System.Text.Json.JsonSerializer.Serialize(targetSite);
+                var siteInfo = System.Text.Json.JsonSerializer.Deserialize<SiteInfo>(siteJson);
+
+                if (siteInfo == null)
+                {
+                    return StatusCode(500, new { message = "Erro ao processar informações do site IIS" });
+                }
+
+                // Construir o caminho de destino
+                string targetPath = siteInfo.PhysicalPath;
+                string metadataName = request.IisSiteName;
+
+                // Se há subPath, verificar se existe como aplicação no IIS
+                if (!string.IsNullOrWhiteSpace(request.SubPath))
+                {
+                    var appsResult = await _iisManagementService.GetSiteApplicationsAsync(request.IisSiteName);
+                    if (appsResult.Success)
+                    {
+                        var targetApp = appsResult.Applications.FirstOrDefault(a =>
+                        {
+                            var appData = System.Text.Json.JsonSerializer.Serialize(a);
+                            var appInfo = System.Text.Json.JsonSerializer.Deserialize<ApplicationInfo>(appData);
+                            var appPath = appInfo?.Name?.TrimStart('/');
+                            return string.Equals(appPath, request.SubPath, StringComparison.OrdinalIgnoreCase);
+                        });
+
+                        if (targetApp != null)
+                        {
+                            // É uma aplicação IIS existente
+                            var appJson = System.Text.Json.JsonSerializer.Serialize(targetApp);
+                            var appInfo = System.Text.Json.JsonSerializer.Deserialize<ApplicationInfo>(appJson);
+                            targetPath = appInfo?.PhysicalPath ?? Path.Combine(targetPath, request.SubPath);
+                            metadataName = $"{request.IisSiteName}/{request.SubPath}";
+                        }
+                        else
+                        {
+                            // Não é aplicação IIS, será um subdiretório
+                            targetPath = Path.Combine(targetPath, request.SubPath);
+                            metadataName = $"{request.IisSiteName}/{request.SubPath}";
+                        }
+                    }
+                    else
+                    {
+                        // Assumir como subdiretório
+                        targetPath = Path.Combine(targetPath, request.SubPath);
+                        metadataName = $"{request.IisSiteName}/{request.SubPath}";
+                    }
+                }
+
+                // Verificar se já existe metadado para este nome/caminho
+                var existingMetadata = _deployService.GetAllDeployMetadata();
+                var duplicateByName = existingMetadata.FirstOrDefault(m => 
+                    string.Equals(m.Name, metadataName, StringComparison.OrdinalIgnoreCase));
+
+                var duplicateByPath = existingMetadata.FirstOrDefault(m => 
+                    string.Equals(Path.GetFullPath(m.TargetPath), Path.GetFullPath(targetPath), StringComparison.OrdinalIgnoreCase));
+
+                if (duplicateByName != null)
+                {
+                    return BadRequest(new { 
+                        message = $"Já existe um metadado registrado com o nome '{metadataName}'",
+                        existingMetadata = duplicateByName
+                    });
+                }
+
+                if (duplicateByPath != null)
+                {
+                    return BadRequest(new { 
+                        message = $"Já existe um metadado registrado para o caminho '{targetPath}'",
+                        existingMetadata = duplicateByPath
+                    });
+                }
+
+                // Criar novo metadado usando o DeployService
+                var metadataResult = _deployService.CreateMetadataOnly(
+                    metadataName,
+                    request.RepoUrl,
+                    request.Branch,
+                    request.BuildCommand,
+                    targetPath
+                );
+
+                if (!metadataResult.Success)
+                {
+                    return BadRequest(new { message = metadataResult.Message });
+                }
+
+                _logger.LogInformation("Metadados criados com sucesso: {Name} -> {TargetPath}", 
+                    metadataName, targetPath);
+
+                var response = new
+                {
+                    repoUrl = request.RepoUrl,
+                    branch = request.Branch,
+                    buildCommand = request.BuildCommand,
+                    buildOutput = request.BuildOutput,
+                    targetPath = targetPath,
+                    iisSiteName = request.IisSiteName,
+                    subPath = request.SubPath,
+                    exists = metadataResult.Metadata?.Exists ?? false,
+                    name = metadataName,
+                    timestamp = DateTime.UtcNow
+                };
+
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao criar metadados");
                 return StatusCode(500, new { message = "Erro interno do servidor", details = ex.Message });
             }
         }

@@ -6,339 +6,285 @@ namespace CustomDeploy.Services
     public class PublicationService
     {
         private readonly ILogger<PublicationService> _logger;
-        private readonly string _publicationsPath;
         private readonly DeployService _deployService;
+        private readonly IISManagementService _iisManagementService;
 
-        public PublicationService(ILogger<PublicationService> logger, IConfiguration configuration, DeployService deployService)
+        public PublicationService(ILogger<PublicationService> logger, IConfiguration configuration, DeployService deployService, IISManagementService iisManagementService)
         {
             _logger = logger;
-            _publicationsPath = configuration.GetValue<string>("DeploySettings:PublicationsPath") 
-                ?? "C:\\inetpub\\wwwroot";
             _deployService = deployService;
+            _iisManagementService = iisManagementService;
         }
 
-        public async Task<List<PublicationInfo>> GetPublicationsAsync()
+        /// <summary>
+        /// Lista todas as publicações usando o IIS como fonte de verdade
+        /// </summary>
+        /// <returns>Lista de publicações baseadas no IIS</returns>
+        public async Task<List<IISBasedPublication>> GetPublicationsAsync()
         {
             try
             {
-                _logger.LogInformation("Listando publicações em: {PublicationsPath}", _publicationsPath);
+                _logger.LogInformation("Listando publicações usando IIS como fonte de verdade");
 
-                if (!Directory.Exists(_publicationsPath))
+                var publications = new List<IISBasedPublication>();
+
+                // 1. Obter todos os sites do IIS
+                var sitesResult = await _iisManagementService.GetAllSitesAsync();
+                if (!sitesResult.Success)
                 {
-                    _logger.LogWarning("Diretório de publicações não encontrado: {PublicationsPath}", _publicationsPath);
-                    return new List<PublicationInfo>();
+                    _logger.LogError("Erro ao obter sites do IIS: {Message}", sitesResult.Message);
+                    return publications;
                 }
 
-                // Carregar todos os metadados do arquivo centralizado com verificação de existência
-                var allDeployMetadata = _deployService.GetAllDeployMetadataWithExistsCheck();
-                var metadataDict = allDeployMetadata.ToDictionary(
-                    m => Path.GetFullPath(m.TargetPath), 
-                    m => m, 
-                    StringComparer.OrdinalIgnoreCase);
+                _logger.LogInformation("Sites encontrados no IIS: {Count}", sitesResult.Sites.Count);
 
-                var publications = new List<PublicationInfo>();
+                // 2. Carregar metadados existentes
+                var allMetadata = _deployService.GetAllDeployMetadata();
+                var metadataDict = CreateMetadataLookup(allMetadata);
 
-                // 1. Buscar apenas diretórios no nível raiz e adicionar aos metadados se necessário
-                var rootDirectories = Directory.GetDirectories(_publicationsPath);
-                foreach (var directory in rootDirectories)
+                _logger.LogInformation("Metadados carregados: {Count}", allMetadata.Count);
+
+                // 3. Processar cada site
+                foreach (var siteObj in sitesResult.Sites)
                 {
                     try
                     {
-                        var directoryInfo = new DirectoryInfo(directory);
-                        var fullPath = directoryInfo.FullName;
+                        _logger.LogDebug("Processando site objeto: {SiteObj}", JsonSerializer.Serialize(siteObj));
 
-                        _logger.LogDebug("Processando diretório raiz: {Directory}", fullPath);
+                        _logger.LogDebug("Site objeto raw: {SiteObj}", JsonSerializer.Serialize(siteObj));
+                        
+                        var site = JsonSerializer.Deserialize<SiteInfo>(
+                            JsonSerializer.Serialize(siteObj));
 
-                        // Buscar metadados no dicionário
-                        metadataDict.TryGetValue(fullPath, out var metadata);
-
-                        // Se não há metadados para um diretório existente, criar automaticamente
-                        if (metadata == null)
+                        if (site == null) 
                         {
-                            _logger.LogInformation("Diretório raiz encontrado sem metadados, criando automaticamente: {Path}", fullPath);
-                            var createResult = _deployService.CreateMetadataForExistingDirectory(fullPath);
-                            
-                            if (createResult.Success)
+                            _logger.LogWarning("Site deserializado como null");
+                            continue;
+                        }
+
+                        _logger.LogInformation("Site deserializado: Name='{Name}', ID={Id}, Path='{Path}'", 
+                            site.Name ?? "NULL", site.Id, site.PhysicalPath ?? "NULL");
+
+                        // 3.1. Adicionar o site raiz
+                        var sitePublication = await CreatePublicationFromSite(site, null, metadataDict);
+                        publications.Add(sitePublication);
+
+                        // 3.2. Obter aplicações do site
+                        var appsResult = await _iisManagementService.GetSiteApplicationsAsync(site.Name);
+                        if (appsResult.Success)
+                        {
+                            foreach (var appObj in appsResult.Applications)
                             {
-                                // Recarregar metadados após criação
-                                var updatedMetadata = _deployService.GetAllDeployMetadataWithExistsCheck();
-                                var updatedDict = updatedMetadata.ToDictionary(
-                                    m => Path.GetFullPath(m.TargetPath), 
-                                    m => m, 
-                                    StringComparer.OrdinalIgnoreCase);
-                                updatedDict.TryGetValue(fullPath, out metadata);
-                                
-                                _logger.LogInformation("Metadados criados automaticamente: {Message}", createResult.Message);
-                            }
-                            else
-                            {
-                                _logger.LogWarning("Falha ao criar metadados automáticos: {Message}", createResult.Message);
+                                try
+                                {
+                                    var app = JsonSerializer.Deserialize<ApplicationInfo>(
+                                        JsonSerializer.Serialize(appObj));
+
+                                    if (app == null || string.IsNullOrWhiteSpace(app.Name)) continue;
+
+                                    // Limpar o nome da aplicação (remover "/" inicial)
+                                    var cleanAppName = app.Name.TrimStart('/');
+                                    if (string.IsNullOrWhiteSpace(cleanAppName)) continue;
+
+                                    var appPublication = await CreatePublicationFromSite(site, app, metadataDict);
+                                    publications.Add(appPublication);
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogWarning(ex, "Erro ao processar aplicação do site {SiteName}", site.Name);
+                                }
                             }
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Erro ao processar diretório raiz: {Directory}", directory);
+                        _logger.LogWarning(ex, "Erro ao processar site individual");
                     }
                 }
 
-                // 2. Recarregar todos os metadados após possíveis criações automáticas
-                allDeployMetadata = _deployService.GetAllDeployMetadataWithExistsCheck();
+                _logger.LogInformation("Encontradas {Count} publicações no IIS", publications.Count);
+                return publications.OrderBy(p => p.Name).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao listar publicações do IIS");
+                return new List<IISBasedPublication>();
+            }
+        }
 
-                // 3. Criar PublicationInfo para todos os deploys dos metadados
-                foreach (var metadata in allDeployMetadata)
-                {
-                    try
-                    {
-                        var fullPath = Path.GetFullPath(metadata.TargetPath);
-                        var directoryExists = Directory.Exists(fullPath);
-                        
-                        // Calcular tamanho se o diretório existir fisicamente
-                        double sizeInMB = 0;
-                        DateTime lastModified = metadata.DeployedAt;
-                        
-                        if (directoryExists)
-                        {
-                            var directoryInfo = new DirectoryInfo(fullPath);
-                            var sizeInBytes = await CalculateDirectorySizeAsync(fullPath);
-                            sizeInMB = Math.Round(sizeInBytes / (1024.0 * 1024.0), 2);
-                            lastModified = directoryInfo.LastWriteTime;
-                        }
+        /// <summary>
+        /// Cria um dicionário de lookup para metadados baseado no caminho físico e nome
+        /// </summary>
+        private Dictionary<string, DeployMetadata> CreateMetadataLookup(List<DeployMetadata> allMetadata)
+        {
+            var dict = new Dictionary<string, DeployMetadata>(StringComparer.OrdinalIgnoreCase);
 
-                        var publication = new PublicationInfo
-                        {
-                            Name = metadata.Exists && directoryExists ? metadata.Name : $"{metadata.Name} (Removido)",
-                            FullPath = fullPath,
-                            LastModified = lastModified,
-                            SizeMB = sizeInMB,
-                            Exists = metadata.Exists && directoryExists,
-                            Repository = metadata.Repository,
-                            Branch = metadata.Branch,
-                            BuildCommand = metadata.BuildCommand,
-                            DeployedAt = metadata.DeployedAt,
-                            ParentProject = ExtractParentProject(GetRelativePathFromFull(metadata.TargetPath))
-                        };
-
-                        publications.Add(publication);
-                        
-                        _logger.LogDebug("Publicação dos metadados: {Name} - {SizeMB} MB - Exists: {Exists} - TargetPath: {TargetPath}", 
-                            publication.Name, publication.SizeMB, publication.Exists, metadata.TargetPath);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Erro ao processar metadata do deploy: {Name}", metadata.Name);
-                    }
-                }
-
-                // Ordenar por data de modificação (mais recente primeiro)
-                publications = publications.OrderByDescending(p => p.LastModified).ToList();
-
-                _logger.LogInformation("Encontradas {Count} publicações ({ActiveCount} ativas, {InactiveCount} removidas)", 
-                    publications.Count,
-                    publications.Count(p => p.Exists),
-                    publications.Count(p => !p.Exists));
+            foreach (var metadata in allMetadata)
+            {
+                // Adicionar por caminho físico
+                dict.TryAdd(Path.GetFullPath(metadata.TargetPath), metadata);
+                
+                // Adicionar por nome também (para lookup direto)
+                dict.TryAdd(metadata.Name, metadata);
+                
+                // Adicionar variações do nome para compatibilidade
+                var normalizedName = metadata.Name.TrimEnd('/', '\\');
+                var nameWithSlash = normalizedName + "/";
+                
+                if (!dict.ContainsKey(normalizedName))
+                    dict.TryAdd(normalizedName, metadata);
                     
-                return publications;
+                if (!dict.ContainsKey(nameWithSlash))
+                    dict.TryAdd(nameWithSlash, metadata);
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao listar publicações");
-                throw;
-            }
+
+            return dict;
         }
 
-        private async Task<long> CalculateDirectorySizeAsync(string directoryPath)
+        /// <summary>
+        /// Cria uma publicação baseada em informações do IIS e metadados
+        /// </summary>
+        private async Task<IISBasedPublication> CreatePublicationFromSite(
+            SiteInfo site, 
+            ApplicationInfo? app, 
+            Dictionary<string, DeployMetadata> metadataDict)
         {
-            return await Task.Run(() =>
+            var publication = new IISBasedPublication
             {
-                try
-                {
-                    var directory = new DirectoryInfo(directoryPath);
-                    return CalculateDirectorySize(directory);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Erro ao calcular tamanho do diretório: {Directory}", directoryPath);
-                    return 0;
-                }
-            });
+                IisSite = site.Name,
+                IisPath = site.PhysicalPath,
+                IisSiteState = site.State,
+                IisSiteId = site.Id,
+                Exists = true // No IIS, então existe
+            };
+
+            // Definir aplicação e caminho completo
+            if (app != null)
+            {
+                var cleanAppName = app.Name.TrimStart('/');
+                publication.SubApplication = cleanAppName;
+                publication.FullPath = app.PhysicalPath;
+                publication.ApplicationPool = app.ApplicationPool;
+                publication.EnabledProtocols = app.EnabledProtocols;
+            }
+            else
+            {
+                publication.FullPath = site.PhysicalPath;
+            }
+
+            // Buscar metadados por várias chaves possíveis
+            DeployMetadata? metadata = null;
+            
+            // Tentar por caminho físico
+            metadataDict.TryGetValue(publication.FullPath, out metadata);
+            
+            // Tentar por nome (site ou site/app)
+            if (metadata == null)
+            {
+                metadataDict.TryGetValue(publication.Name, out metadata);
+            }
+
+            // Tentar por nome do site apenas
+            if (metadata == null && app != null)
+            {
+                metadataDict.TryGetValue(site.Name, out metadata);
+            }
+
+            // Aplicar metadados se encontrados
+            if (metadata != null)
+            {
+                publication.RepoUrl = metadata.Repository;
+                publication.Branch = metadata.Branch;
+                publication.BuildCommand = metadata.BuildCommand;
+                publication.DeployedAt = metadata.DeployedAt;
+            }
+
+            // Calcular informações do diretório físico
+            await CalculateDirectoryInfo(publication);
+
+            return publication;
         }
 
-        private long CalculateDirectorySize(DirectoryInfo directory)
+        /// <summary>
+        /// Calcula tamanho e data de modificação do diretório físico
+        /// </summary>
+        private async Task CalculateDirectoryInfo(IISBasedPublication publication)
         {
-            long size = 0;
-
             try
             {
-                // Somar tamanho de todos os arquivos
-                FileInfo[] files = directory.GetFiles();
-                foreach (FileInfo file in files)
+                if (Directory.Exists(publication.FullPath))
                 {
-                    try
-                    {
-                        size += file.Length;
-                    }
-                    catch (UnauthorizedAccessException)
-                    {
-                        // Ignorar arquivos sem permissão de acesso
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogDebug(ex, "Erro ao acessar arquivo: {FileName}", file.FullName);
-                    }
-                }
+                    var dirInfo = new DirectoryInfo(publication.FullPath);
+                    publication.LastModified = dirInfo.LastWriteTime;
 
-                // Somar tamanho de subdiretórios recursivamente
-                DirectoryInfo[] subdirectories = directory.GetDirectories();
-                foreach (DirectoryInfo subdirectory in subdirectories)
+                    // Calcular tamanho de forma assíncrona
+                    var sizeTask = Task.Run(() =>
+                    {
+                        try
+                        {
+                            return CalculateDirectorySize(dirInfo);
+                        }
+                        catch
+                        {
+                            return 0.0;
+                        }
+                    });
+
+                    publication.SizeMB = await sizeTask;
+                }
+                else
                 {
-                    try
-                    {
-                        size += CalculateDirectorySize(subdirectory);
-                    }
-                    catch (UnauthorizedAccessException)
-                    {
-                        // Ignorar diretórios sem permissão de acesso
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogDebug(ex, "Erro ao acessar subdiretório: {DirectoryName}", subdirectory.FullName);
-                    }
+                    publication.SizeMB = 0.0;
+                    publication.LastModified = null;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogDebug(ex, "Erro ao calcular tamanho do diretório: {DirectoryName}", directory.FullName);
+                _logger.LogWarning(ex, "Erro ao calcular informações do diretório: {Path}", publication.FullPath);
+                publication.SizeMB = 0.0;
+                publication.LastModified = null;
             }
-
-            return size;
         }
 
+        /// <summary>
+        /// Calcula o tamanho de um diretório em MB
+        /// </summary>
+        private double CalculateDirectorySize(DirectoryInfo dirInfo)
+        {
+            try
+            {
+                long sizeBytes = dirInfo.GetFiles("*", SearchOption.AllDirectories)
+                    .Sum(file => file.Length);
+                
+                return Math.Round(sizeBytes / (1024.0 * 1024.0), 2);
+            }
+            catch
+            {
+                return 0.0;
+            }
+        }
+
+        // Método legado mantido para compatibilidade
         public async Task<PublicationInfo?> GetPublicationByNameAsync(string name)
         {
-            try
-            {
-                // Primeiro, verificar se existe um diretório físico com esse nome
-                var potentialPath = Path.Combine(_publicationsPath, name);
-                var directoryExists = Directory.Exists(potentialPath);
-                
-                if (directoryExists)
-                {
-                    // Verificar se há metadados para este diretório
-                    var allMetadata = _deployService.GetAllDeployMetadata();
-                    var metadata = allMetadata.FirstOrDefault(m => 
-                        string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(Path.GetFileName(m.TargetPath), name, StringComparison.OrdinalIgnoreCase));
-                    
-                    if (metadata == null)
-                    {
-                        _logger.LogInformation("Diretório '{Name}' encontrado sem metadados, criando automaticamente", name);
-                        var createResult = _deployService.CreateMetadataForExistingDirectory(potentialPath);
-                        
-                        if (createResult.Success)
-                        {
-                            _logger.LogInformation("Metadados criados automaticamente para: {Name}", name);
-                        }
-                    }
-                }
-                
-                // Agora usar o método padrão que já incluirá os metadados criados
-                var publications = await GetPublicationsAsync();
-                return publications.FirstOrDefault(p => 
-                    p.Name.Equals(name, StringComparison.OrdinalIgnoreCase) ||
-                    p.Name.Equals($"{name} (Removido)", StringComparison.OrdinalIgnoreCase));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao buscar publicação: {Name}", name);
-                throw;
-            }
-        }
+            var publications = await GetPublicationsAsync();
+            var publication = publications.FirstOrDefault(p => 
+                string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
 
-        /// <summary>
-        /// Converte um caminho completo para um caminho relativo baseado no _publicationsPath.
-        /// Ex: "C:\temp\wwwroot\carteira\api" -> "carteira/api"
-        /// </summary>
-        /// <param name="fullPath">Caminho completo</param>
-        /// <returns>Caminho relativo ou o caminho original se não for possível converter</returns>
-        private string GetRelativePathFromFull(string fullPath)
-        {
-            if (string.IsNullOrWhiteSpace(fullPath))
-            {
-                return string.Empty;
-            }
+            if (publication == null) return null;
 
-            try
+            return new PublicationInfo
             {
-                var normalizedFullPath = Path.GetFullPath(fullPath);
-                var normalizedPublicationsPath = Path.GetFullPath(_publicationsPath);
-
-                // Verificar se o caminho está dentro do diretório de publicações
-                if (normalizedFullPath.StartsWith(normalizedPublicationsPath, StringComparison.OrdinalIgnoreCase))
-                {
-                    // Extrair a parte relativa
-                    var relativePath = normalizedFullPath.Substring(normalizedPublicationsPath.Length);
-                    
-                    // Remover separadores iniciais
-                    relativePath = relativePath.TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                    
-                    // Normalizar separadores para /
-                    relativePath = relativePath.Replace('\\', '/');
-                    
-                    return relativePath;
-                }
-
-                _logger.LogWarning("Caminho não está dentro do diretório de publicações: {FullPath}", fullPath);
-                return fullPath; // Retorna o original se não conseguir converter
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Erro ao converter caminho completo para relativo: {FullPath}", fullPath);
-                return fullPath; // Retorna o original em caso de erro
-            }
-        }
-
-        /// <summary>
-        /// Extrai o nome do projeto pai baseado na targetPath.
-        /// Retorna null se estiver no nível raiz, ou o nome da pasta pai se estiver em subdiretório.
-        /// </summary>
-        /// <param name="targetPath">Caminho do deploy (ex: "app2/api", "app1")</param>
-        /// <returns>Nome do projeto pai ou null</returns>
-        private string? ExtractParentProject(string targetPath)
-        {
-            if (string.IsNullOrWhiteSpace(targetPath))
-            {
-                return null;
-            }
-
-            try
-            {
-                // Normalizar separadores de caminho para / para consistência
-                var normalizedPath = targetPath.Replace('\\', '/');
-                
-                // Remover barras iniciais e finais
-                normalizedPath = normalizedPath.Trim('/');
-                
-                // Se não há barras, está no nível raiz
-                if (!normalizedPath.Contains('/'))
-                {
-                    return null;
-                }
-                
-                // Extrair a primeira parte (projeto pai)
-                var pathParts = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-                if (pathParts.Length > 1)
-                {
-                    return pathParts[0];
-                }
-                
-                return null;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Erro ao extrair projeto pai de: {TargetPath}", targetPath);
-                return null;
-            }
+                Name = publication.Name,
+                Repository = publication.RepoUrl ?? "N/A",
+                Branch = publication.Branch ?? "N/A",
+                BuildCommand = publication.BuildCommand ?? "N/A",
+                FullPath = publication.FullPath,
+                DeployedAt = publication.DeployedAt ?? DateTime.MinValue,
+                Exists = publication.Exists,
+                SizeMB = publication.SizeMB,
+                LastModified = publication.LastModified ?? DateTime.MinValue
+            };
         }
     }
 }

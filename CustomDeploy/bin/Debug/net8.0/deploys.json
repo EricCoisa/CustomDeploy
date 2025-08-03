@@ -1,47 +1,38 @@
 ﻿[
   {
-    "name": "gruppy/carteira",
+    "name": "campanha/teste-metadados",
+    "repository": "https://github.com/test/repo-metadata",
+    "branch": "main",
+    "buildCommand": "npm run build",
+    "targetPath": "C:\\inetpub\\wwwroot\\campanha\\teste-metadados",
+    "deployedAt": "0001-01-01T00:00:00",
+    "exists": false
+  },
+  {
+    "name": "campanha/aaa",
+    "repository": "sss",
+    "branch": "ddd",
+    "buildCommand": "ff",
+    "targetPath": "C:\\inetpub\\wwwroot\\campanha\\aaa",
+    "deployedAt": "0001-01-01T00:00:00",
+    "exists": false
+  },
+  {
+    "name": "campanha/aassa",
+    "repository": "sss",
+    "branch": "ddd",
+    "buildCommand": "ff",
+    "targetPath": "C:\\inetpub\\wwwroot\\campanha\\aassa",
+    "deployedAt": "0001-01-01T00:00:00",
+    "exists": false
+  },
+  {
+    "name": "carteira/carteira",
     "repository": "https://github.com/LinkedFarma/Gruppy.Solution.Front",
     "branch": "dev",
     "buildCommand": "npm i \u0026\u0026 npm run build:carteira",
     "targetPath": "C:\\inetpub\\wwwroot\\carteira\\carteira",
-    "deployedAt": "2025-08-03T02:50:44.8470261Z",
-    "exists": false
-  },
-  {
-    "name": "gruppy/abobora",
-    "repository": "https://github.com/LinkedFarma/Gruppy.Solution.Front",
-    "branch": "dev",
-    "buildCommand": "npm i \u0026\u0026 npm run build:carteira",
-    "targetPath": "C:\\inetpub\\wwwroot\\carteira\\abobora",
-    "deployedAt": "2025-08-03T02:55:08.1757204Z",
-    "exists": false
-  },
-  {
-    "name": "gruppy/aaa",
-    "repository": "https://github.com/LinkedFarma/Gruppy.Solution.Front",
-    "branch": "dev",
-    "buildCommand": "npm i \u0026\u0026 npm run build:carteira",
-    "targetPath": "C:\\inetpub\\wwwroot\\carteira\\aaa",
-    "deployedAt": "2025-08-03T02:59:24.3455224Z",
-    "exists": false
-  },
-  {
-    "name": "carteira/",
-    "repository": "https://github.com/LinkedFarma/Gruppy.Solution.Front",
-    "branch": "dev",
-    "buildCommand": "npm i \u0026\u0026 npm run build:carteira",
-    "targetPath": "C:\\inetpub\\wwwroot\\carteira",
-    "deployedAt": "2025-08-03T03:03:34.4890145Z",
-    "exists": true
-  },
-  {
-    "name": "carteira/api",
-    "repository": "https://github.com/LinkedFarma/Gruppy.Solution.Front",
-    "branch": "dev",
-    "buildCommand": "npm i \u0026\u0026 npm run build:carteira",
-    "targetPath": "C:\\inetpub\\wwwroot\\carteira\\api",
-    "deployedAt": "2025-08-03T03:04:15.0957267Z",
+    "deployedAt": "2025-08-03T04:18:13.9767944Z",
     "exists": true
   }
 ]

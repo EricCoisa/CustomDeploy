@@ -951,10 +951,10 @@ $sites | ConvertTo-Json -Depth 1 -Compress
             {
                 return new
                 {
-                    name = siteElement.GetProperty("Name").GetString() ?? "Unknown",
-                    id = siteElement.GetProperty("Id").GetInt32(),
-                    state = siteElement.GetProperty("State").GetInt32(),
-                    physicalPath = siteElement.GetProperty("PhysicalPath").GetString() ?? "Unknown"
+                    Name = siteElement.GetProperty("Name").GetString() ?? "Unknown",
+                    Id = siteElement.GetProperty("Id").GetInt32(),
+                    State = siteElement.GetProperty("State").GetInt32(),
+                    PhysicalPath = siteElement.GetProperty("PhysicalPath").GetString() ?? "Unknown"
                 };
             }
             catch (Exception ex)
@@ -962,10 +962,10 @@ $sites | ConvertTo-Json -Depth 1 -Compress
                 _logger.LogWarning(ex, "Erro ao processar elemento de site individual");
                 return new
                 {
-                    name = "Error",
-                    id = 0,
-                    state = 0,
-                    physicalPath = $"Error: {ex.Message}"
+                    Name = "Error",
+                    Id = 0,
+                    State = 0,
+                    PhysicalPath = $"Error: {ex.Message}"
                 };
             }
         }
@@ -1053,6 +1053,149 @@ $sites | ConvertTo-Json -Depth 1 -Compress
                     id = 0,
                     state = "Error",
                     physicalPath = $"Error: {ex.Message}"
+                };
+            }
+        }
+
+        /// <summary>
+        /// Lista todas as aplicações de um site específico do IIS
+        /// </summary>
+        /// <param name="siteName">Nome do site</param>
+        /// <returns>Lista de aplicações do site</returns>
+        public async Task<(bool Success, string Message, List<object> Applications)> GetSiteApplicationsAsync(string siteName)
+        {
+            var tempScriptPath = Path.GetTempFileName() + ".ps1";
+            
+            try
+            {
+                _logger.LogInformation("Listando aplicações do site: {SiteName}", siteName);
+
+                var powershellScript = $@"
+Import-Module WebAdministration -ErrorAction SilentlyContinue
+
+try {{
+    $site = Get-IISSite -Name '{siteName}' -ErrorAction Stop
+    $applications = @()
+    
+    # Buscar aplicações dentro do site
+    $webApps = Get-WebApplication -Site '{siteName}' -ErrorAction SilentlyContinue
+    
+    foreach ($app in $webApps) {{
+        $appInfo = @{{
+            name = $app.path
+            physicalPath = $app.physicalPath
+            enabledProtocols = $app.enabledProtocols
+            applicationPool = $app.applicationPool
+        }}
+        $applications += $appInfo
+    }}
+    
+    $applications | ConvertTo-Json -Depth 2 -Compress
+}} catch {{
+    Write-Error ""Erro ao listar aplicações: $($_.Exception.Message)""
+    exit 1
+}}
+";
+
+                try
+                {
+                    // Escrever script temporário
+                    await File.WriteAllTextAsync(tempScriptPath, powershellScript);
+                    
+                    // Executar script
+                    var appsResult = await ExecuteCommandAsync("powershell", 
+                        $"-ExecutionPolicy Bypass -File \"{tempScriptPath}\"");
+
+                    if (!appsResult.Success)
+                    {
+                        return (false, appsResult.Message, new List<object>());
+                    }
+
+                    if (string.IsNullOrWhiteSpace(appsResult.Output))
+                    {
+                        return (true, "Nenhuma aplicação encontrada", new List<object>());
+                    }
+
+                    try
+                    {
+                        _logger.LogDebug("Saída do comando PowerShell para aplicações: {Output}", appsResult.Output);
+                        
+                        var appsJson = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(appsResult.Output);
+                        var applicationsList = new List<object>();
+
+                        if (appsJson.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        {
+                            foreach (var appElement in appsJson.EnumerateArray())
+                            {
+                                applicationsList.Add(ParseApplicationElement(appElement));
+                            }
+                        }
+                        else if (appsJson.ValueKind == System.Text.Json.JsonValueKind.Object)
+                        {
+                            // Caso seja apenas uma aplicação
+                            applicationsList.Add(ParseApplicationElement(appsJson));
+                        }
+
+                        _logger.LogInformation("Encontradas {Count} aplicações no site {SiteName}", 
+                            applicationsList.Count, siteName);
+                        
+                        return (true, $"Aplicações listadas com sucesso", applicationsList);
+                    }
+                    catch (System.Text.Json.JsonException ex)
+                    {
+                        _logger.LogError(ex, "Erro ao fazer parse do JSON das aplicações: {Output}", appsResult.Output);
+                        return (false, $"Erro ao processar resposta JSON das aplicações: {ex.Message}", new List<object>());
+                    }
+                }
+                finally
+                {
+                    // Limpar arquivo temporário
+                    try
+                    {
+                        if (File.Exists(tempScriptPath))
+                        {
+                            File.Delete(tempScriptPath);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Erro ao limpar arquivo temporário: {TempPath}", tempScriptPath);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao listar aplicações do site: {SiteName}", siteName);
+                return (false, ex.Message, new List<object>());
+            }
+        }
+
+        private object ParseApplicationElement(System.Text.Json.JsonElement appElement)
+        {
+            try
+            {
+                var name = appElement.GetProperty("name").GetString() ?? "";
+                var physicalPath = appElement.GetProperty("physicalPath").GetString() ?? "";
+                var enabledProtocols = appElement.GetProperty("enabledProtocols").GetString() ?? "";
+                var applicationPool = appElement.GetProperty("applicationPool").GetString() ?? "";
+
+                return new
+                {
+                    Name = name,
+                    PhysicalPath = physicalPath,
+                    EnabledProtocols = enabledProtocols,
+                    ApplicationPool = applicationPool
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Erro ao processar elemento de aplicação individual");
+                return new
+                {
+                    Name = "Error",
+                    PhysicalPath = $"Error: {ex.Message}",
+                    EnabledProtocols = "Error",
+                    ApplicationPool = "Error"
                 };
             }
         }
