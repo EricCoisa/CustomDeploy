@@ -763,11 +763,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "c:\\Users\\ericv\\source\\repos\\CustomDeploy\\CustomDeploy\\CustomDeploy\\CustomDeploy.csproj",
+      "projectUniqueName": "C:\\Users\\ericv\\source\\repos\\CustomDeploy\\CustomDeploy\\CustomDeploy\\CustomDeploy.csproj",
       "projectName": "CustomDeploy",
-      "projectPath": "c:\\Users\\ericv\\source\\repos\\CustomDeploy\\CustomDeploy\\CustomDeploy\\CustomDeploy.csproj",
+      "projectPath": "C:\\Users\\ericv\\source\\repos\\CustomDeploy\\CustomDeploy\\CustomDeploy\\CustomDeploy.csproj",
       "packagesPath": "C:\\Users\\ericv\\.nuget\\packages\\",
-      "outputPath": "c:\\Users\\ericv\\source\\repos\\CustomDeploy\\CustomDeploy\\CustomDeploy\\obj\\",
+      "outputPath": "C:\\Users\\ericv\\source\\repos\\CustomDeploy\\CustomDeploy\\CustomDeploy\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages",

@@ -68,6 +68,52 @@
         }
       }
     },
+    "/deploy/publications": {
+      "get": {
+        "tags": [
+          "Publication"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/deploy/publications/{name}": {
+      "get": {
+        "tags": [
+          "Publication"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/deploy/publications/stats": {
+      "get": {
+        "tags": [
+          "Publication"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/WeatherForecast": {
       "get": {
         "tags": [

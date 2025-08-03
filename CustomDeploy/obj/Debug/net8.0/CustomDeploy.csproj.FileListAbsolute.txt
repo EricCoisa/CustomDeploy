@@ -36,3 +36,4 @@ C:\Users\ericv\source\repos\CustomDeploy\CustomDeploy\CustomDeploy\obj\Debug\net
 C:\Users\ericv\source\repos\CustomDeploy\CustomDeploy\CustomDeploy\obj\Debug\net8.0\CustomDeploy.pdb
 C:\Users\ericv\source\repos\CustomDeploy\CustomDeploy\CustomDeploy\obj\Debug\net8.0\CustomDeploy.genruntimeconfig.cache
 C:\Users\ericv\source\repos\CustomDeploy\CustomDeploy\CustomDeploy\obj\Debug\net8.0\ref\CustomDeploy.dll
+C:\Users\ericv\source\repos\CustomDeploy\CustomDeploy\CustomDeploy\obj\Debug\net8.0\CustomDeploy.sourcelink.json

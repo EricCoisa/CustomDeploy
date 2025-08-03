@@ -6,6 +6,7 @@ namespace CustomDeploy.Models
         public string FullPath { get; set; } = string.Empty;
         public DateTime LastModified { get; set; }
         public double SizeMB { get; set; }
+        public bool Exists { get; set; } = true;
 
         // Metadados do deploy
         public string? Repository { get; set; }

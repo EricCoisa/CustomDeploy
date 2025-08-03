@@ -10,6 +10,8 @@ namespace CustomDeploy.Services
         private readonly ILogger<DeployService> _logger;
         private readonly string _workingDirectory;
         private readonly string _publicationsPath;
+        private readonly string _deploysJsonPath;
+        private static readonly object _deploysFileLock = new object();
 
         public DeployService(ILogger<DeployService> logger, IConfiguration configuration)
         {
@@ -18,6 +20,9 @@ namespace CustomDeploy.Services
                 ?? Path.Combine(Path.GetTempPath(), "CustomDeploy");
             _publicationsPath = configuration.GetValue<string>("DeploySettings:PublicationsPath") 
                 ?? "C:\\temp\\wwwroot";
+            
+            // Caminho para o arquivo centralizado de metadados
+            _deploysJsonPath = Path.Combine(AppContext.BaseDirectory, "deploys.json");
             
             // Criar diretório de trabalho se não existir
             if (!Directory.Exists(_workingDirectory))
@@ -68,7 +73,7 @@ namespace CustomDeploy.Services
                 }
 
                 // 4. Salvar metadados do deploy
-                var metadataResult = await SaveDeployMetadataAsync(request);
+                var metadataResult = SaveDeployMetadata(request);
                 if (!metadataResult.Success)
                 {
                     _logger.LogWarning("Falha ao salvar metadados: {Message}", metadataResult.Message);
@@ -380,34 +385,314 @@ namespace CustomDeploy.Services
             return lastSegment;
         }
 
-        private async Task<(bool Success, string Message)> SaveDeployMetadataAsync(DeployRequest request)
+        private (bool Success, string Message) SaveDeployMetadata(DeployRequest request)
         {
             try
             {
+                var normalizedTargetPath = Path.GetFullPath(request.TargetPath);
+                var deployName = Path.GetFileName(normalizedTargetPath);
+                
                 var metadata = new DeployMetadata
                 {
+                    Name = deployName,
                     Repository = request.RepoUrl,
                     Branch = request.Branch,
                     BuildCommand = request.BuildCommand,
+                    TargetPath = normalizedTargetPath,
                     DeployedAt = DateTime.UtcNow
                 };
 
-                var metadataPath = Path.Combine(request.TargetPath, "deploy.json");
-                var jsonOptions = new JsonSerializerOptions
+                // Thread-safe operation para ler/escrever o arquivo de metadados
+                lock (_deploysFileLock)
                 {
-                    WriteIndented = true,
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                };
+                    var deploysList = LoadAllDeployMetadata();
+                    
+                    // Remover entrada existente se houver (baseado no targetPath)
+                    deploysList.RemoveAll(d => string.Equals(d.TargetPath, normalizedTargetPath, StringComparison.OrdinalIgnoreCase));
+                    
+                    // Adicionar nova entrada
+                    deploysList.Add(metadata);
+                    
+                    // Salvar de volta
+                    SaveAllDeployMetadata(deploysList);
+                }
 
-                var jsonContent = JsonSerializer.Serialize(metadata, jsonOptions);
-                await File.WriteAllTextAsync(metadataPath, jsonContent, Encoding.UTF8);
-
-                _logger.LogInformation("Metadados do deploy salvos em: {MetadataPath}", metadataPath);
-                return (true, "Metadados salvos com sucesso");
+                _logger.LogInformation("Metadados do deploy salvos no arquivo centralizado: {DeploysJsonPath}", _deploysJsonPath);
+                return (true, "Metadados salvos com sucesso no arquivo centralizado");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao salvar metadados do deploy");
+                _logger.LogError(ex, "Erro ao salvar metadados do deploy no arquivo centralizado");
+                return (false, ex.Message);
+            }
+        }
+
+        private List<DeployMetadata> LoadAllDeployMetadata()
+        {
+            try
+            {
+                if (!File.Exists(_deploysJsonPath))
+                {
+                    _logger.LogInformation("Arquivo de metadados não existe, criando novo: {DeploysJsonPath}", _deploysJsonPath);
+                    return new List<DeployMetadata>();
+                }
+
+                var jsonContent = File.ReadAllText(_deploysJsonPath, Encoding.UTF8);
+                
+                if (string.IsNullOrWhiteSpace(jsonContent))
+                {
+                    return new List<DeployMetadata>();
+                }
+
+                var jsonOptions = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    PropertyNameCaseInsensitive = true
+                };
+
+                var deploysList = JsonSerializer.Deserialize<List<DeployMetadata>>(jsonContent, jsonOptions);
+                return deploysList ?? new List<DeployMetadata>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao carregar metadados do arquivo centralizado: {DeploysJsonPath}", _deploysJsonPath);
+                return new List<DeployMetadata>();
+            }
+        }
+
+        private void SaveAllDeployMetadata(List<DeployMetadata> deploysList)
+        {
+            var jsonOptions = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            var jsonContent = JsonSerializer.Serialize(deploysList, jsonOptions);
+            File.WriteAllText(_deploysJsonPath, jsonContent, Encoding.UTF8);
+            
+            _logger.LogDebug("Arquivo de metadados atualizado com {Count} entradas", deploysList.Count);
+        }
+
+        public List<DeployMetadata> GetAllDeployMetadata()
+        {
+            lock (_deploysFileLock)
+            {
+                return LoadAllDeployMetadata();
+            }
+        }
+
+        public List<DeployMetadata> GetAllDeployMetadataWithExistsCheck()
+        {
+            lock (_deploysFileLock)
+            {
+                var deploysList = LoadAllDeployMetadata();
+                bool hasChanges = false;
+
+                // Verificar e atualizar o campo exists para cada deploy
+                foreach (var deploy in deploysList)
+                {
+                    var normalizedPath = Path.GetFullPath(deploy.TargetPath);
+                    var currentExists = Directory.Exists(normalizedPath);
+                    
+                    if (deploy.Exists != currentExists)
+                    {
+                        deploy.Exists = currentExists;
+                        hasChanges = true;
+                        _logger.LogInformation("Status de existência atualizado para {Name}: {Exists}", 
+                            deploy.Name, currentExists);
+                    }
+                }
+
+                // Persistir mudanças se houver
+                if (hasChanges)
+                {
+                    SaveAllDeployMetadata(deploysList);
+                    _logger.LogInformation("Arquivo de metadados atualizado com status de existência");
+                }
+
+                return deploysList;
+            }
+        }
+
+        public (bool Success, string Message) RemoveDeployMetadata(string name)
+        {
+            try
+            {
+                lock (_deploysFileLock)
+                {
+                    var deploysList = LoadAllDeployMetadata();
+                    var removedCount = deploysList.RemoveAll(d => 
+                        string.Equals(d.Name, name, StringComparison.OrdinalIgnoreCase));
+
+                    if (removedCount == 0)
+                    {
+                        return (false, $"Deploy com nome '{name}' não encontrado");
+                    }
+
+                    SaveAllDeployMetadata(deploysList);
+                    _logger.LogInformation("Deploy removido dos metadados: {Name}", name);
+                    
+                    return (true, $"Deploy '{name}' removido com sucesso dos metadados");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao remover deploy dos metadados: {Name}", name);
+                return (false, ex.Message);
+            }
+        }
+
+        public (bool Success, string Message, DeployMetadata? Deploy) GetDeployMetadata(string name)
+        {
+            try
+            {
+                lock (_deploysFileLock)
+                {
+                    var deploysList = LoadAllDeployMetadata();
+                    var deploy = deploysList.FirstOrDefault(d => 
+                        string.Equals(d.Name, name, StringComparison.OrdinalIgnoreCase));
+
+                    if (deploy == null)
+                    {
+                        return (false, $"Deploy com nome '{name}' não encontrado", null);
+                    }
+
+                    // Verificar existência atual
+                    var normalizedPath = Path.GetFullPath(deploy.TargetPath);
+                    deploy.Exists = Directory.Exists(normalizedPath);
+
+                    return (true, "Deploy encontrado", deploy);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao buscar deploy: {Name}", name);
+                return (false, ex.Message, null);
+            }
+        }
+
+        public (bool Success, string Message) CreateMetadataForExistingDirectory(string directoryPath)
+        {
+            try
+            {
+                var normalizedPath = Path.GetFullPath(directoryPath);
+                var directoryInfo = new DirectoryInfo(normalizedPath);
+                
+                if (!directoryInfo.Exists)
+                {
+                    return (false, $"Diretório não existe: {normalizedPath}");
+                }
+
+                lock (_deploysFileLock)
+                {
+                    var deploysList = LoadAllDeployMetadata();
+                    
+                    // Verificar se já existe entrada para este caminho
+                    var existingDeploy = deploysList.FirstOrDefault(d => 
+                        string.Equals(d.TargetPath, normalizedPath, StringComparison.OrdinalIgnoreCase));
+                    
+                    if (existingDeploy != null)
+                    {
+                        return (true, "Metadados já existem para este diretório");
+                    }
+
+                    // Criar nova entrada de metadados
+                    var metadata = new DeployMetadata
+                    {
+                        Name = directoryInfo.Name,
+                        Repository = "N/A (Criado automaticamente)",
+                        Branch = "N/A",
+                        BuildCommand = "N/A",
+                        TargetPath = normalizedPath,
+                        DeployedAt = directoryInfo.CreationTime,
+                        Exists = true
+                    };
+
+                    deploysList.Add(metadata);
+                    SaveAllDeployMetadata(deploysList);
+                    
+                    _logger.LogInformation("Metadados criados automaticamente para diretório existente: {Path}", normalizedPath);
+                    return (true, $"Metadados criados automaticamente para '{directoryInfo.Name}'");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao criar metadados automáticos para diretório: {Path}", directoryPath);
+                return (false, ex.Message);
+            }
+        }
+
+        public (bool Success, string Message) DeletePublicationCompletely(string name)
+        {
+            try
+            {
+                lock (_deploysFileLock)
+                {
+                    var deploysList = LoadAllDeployMetadata();
+                    var deployToDelete = deploysList.FirstOrDefault(d => 
+                        string.Equals(d.Name, name, StringComparison.OrdinalIgnoreCase));
+
+                    if (deployToDelete == null)
+                    {
+                        return (false, $"Deploy com nome '{name}' não encontrado nos metadados");
+                    }
+
+                    var targetPath = deployToDelete.TargetPath;
+                    var physicalDeletionSuccess = false;
+                    var physicalDeletionMessage = "";
+
+                    // Tentar deletar a pasta física se existir
+                    if (Directory.Exists(targetPath))
+                    {
+                        try
+                        {
+                            _logger.LogInformation("Deletando pasta física: {TargetPath}", targetPath);
+                            Directory.Delete(targetPath, true);
+                            physicalDeletionSuccess = true;
+                            physicalDeletionMessage = "Pasta física deletada com sucesso";
+                            _logger.LogInformation("Pasta física deletada: {TargetPath}", targetPath);
+                        }
+                        catch (Exception ex)
+                        {
+                            physicalDeletionMessage = $"Erro ao deletar pasta física: {ex.Message}";
+                            _logger.LogError(ex, "Erro ao deletar pasta física: {TargetPath}", targetPath);
+                        }
+                    }
+                    else
+                    {
+                        physicalDeletionSuccess = true;
+                        physicalDeletionMessage = "Pasta física não existe (já removida ou não encontrada)";
+                        _logger.LogInformation("Pasta física não encontrada: {TargetPath}", targetPath);
+                    }
+
+                    // Remover dos metadados independentemente do sucesso da exclusão física
+                    var removedCount = deploysList.RemoveAll(d => 
+                        string.Equals(d.Name, name, StringComparison.OrdinalIgnoreCase));
+
+                    if (removedCount > 0)
+                    {
+                        SaveAllDeployMetadata(deploysList);
+                        _logger.LogInformation("Deploy removido dos metadados: {Name}", name);
+                        
+                        if (physicalDeletionSuccess)
+                        {
+                            return (true, $"Deploy '{name}' removido completamente (metadados e pasta física)");
+                        }
+                        else
+                        {
+                            return (true, $"Deploy '{name}' removido dos metadados. {physicalDeletionMessage}");
+                        }
+                    }
+                    else
+                    {
+                        return (false, $"Falha ao remover deploy '{name}' dos metadados");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao deletar publicação completamente: {Name}", name);
                 return (false, ex.Message);
             }
         }
@@ -450,6 +735,105 @@ namespace CustomDeploy.Services
             {
                 _logger.LogError(ex, "Erro ao validar targetPath: {TargetPath}", targetPath);
                 return null;
+            }
+        }
+
+        /// <summary>
+        /// Atualiza metadados específicos de um deploy (Repository, Branch, BuildCommand)
+        /// </summary>
+        /// <param name="name">Nome do deploy para busca</param>
+        /// <param name="repository">Novo repository (opcional)</param>
+        /// <param name="branch">Nova branch (opcional)</param>
+        /// <param name="buildCommand">Novo build command (opcional)</param>
+        /// <returns>Resultado da operação de atualização</returns>
+        public (bool Success, string Message, DeployMetadata? UpdatedDeploy) UpdateDeployMetadata(
+            string name, 
+            string? repository = null, 
+            string? branch = null, 
+            string? buildCommand = null)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return (false, "Nome do deploy é obrigatório", null);
+            }
+
+            // Verificar se pelo menos um campo foi fornecido para atualização
+            if (string.IsNullOrWhiteSpace(repository) && 
+                string.IsNullOrWhiteSpace(branch) && 
+                string.IsNullOrWhiteSpace(buildCommand))
+            {
+                return (false, "Pelo menos um campo deve ser fornecido para atualização (Repository, Branch ou BuildCommand)", null);
+            }
+
+            lock (_deploysFileLock)
+            {
+                try
+                {
+                    _logger.LogInformation("Atualizando metadados do deploy: {Name}", name);
+
+                    // Carregar metadados existentes
+                    var allDeploys = LoadAllDeployMetadata();
+                    
+                    // Encontrar o deploy pelo nome
+                    var deployToUpdate = allDeploys.FirstOrDefault(d => 
+                        string.Equals(d.Name, name, StringComparison.OrdinalIgnoreCase));
+
+                    if (deployToUpdate == null)
+                    {
+                        _logger.LogWarning("Deploy não encontrado para atualização: {Name}", name);
+                        return (false, $"Deploy '{name}' não encontrado", null);
+                    }
+
+                    // Guardar valores originais para log
+                    var originalRepository = deployToUpdate.Repository;
+                    var originalBranch = deployToUpdate.Branch;
+                    var originalBuildCommand = deployToUpdate.BuildCommand;
+
+                    // Atualizar apenas os campos fornecidos
+                    if (!string.IsNullOrWhiteSpace(repository))
+                    {
+                        deployToUpdate.Repository = repository.Trim();
+                        _logger.LogInformation("Repository atualizado: '{OldValue}' -> '{NewValue}'", 
+                            originalRepository, deployToUpdate.Repository);
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(branch))
+                    {
+                        deployToUpdate.Branch = branch.Trim();
+                        _logger.LogInformation("Branch atualizada: '{OldValue}' -> '{NewValue}'", 
+                            originalBranch, deployToUpdate.Branch);
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(buildCommand))
+                    {
+                        deployToUpdate.BuildCommand = buildCommand.Trim();
+                        _logger.LogInformation("BuildCommand atualizado: '{OldValue}' -> '{NewValue}'", 
+                            originalBuildCommand, deployToUpdate.BuildCommand);
+                    }
+
+                    // Salvar alterações
+                    SaveAllDeployMetadata(allDeploys);
+
+                    _logger.LogInformation("Metadados do deploy '{Name}' atualizados com sucesso", name);
+
+                    // Construir mensagem detalhada das alterações
+                    var changes = new List<string>();
+                    if (!string.IsNullOrWhiteSpace(repository)) 
+                        changes.Add($"Repository: '{originalRepository}' → '{deployToUpdate.Repository}'");
+                    if (!string.IsNullOrWhiteSpace(branch)) 
+                        changes.Add($"Branch: '{originalBranch}' → '{deployToUpdate.Branch}'");
+                    if (!string.IsNullOrWhiteSpace(buildCommand)) 
+                        changes.Add($"BuildCommand: '{originalBuildCommand}' → '{deployToUpdate.BuildCommand}'");
+
+                    var detailedMessage = $"Metadados do deploy '{name}' atualizados. Alterações: {string.Join(", ", changes)}";
+
+                    return (true, detailedMessage, deployToUpdate);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erro ao atualizar metadados do deploy: {Name}", name);
+                    return (false, $"Erro interno ao atualizar metadados: {ex.Message}", null);
+                }
             }
         }
     }

@@ -1,0 +1,88 @@
+### Teste de Atualização de Metadados
+
+# Primeiro, obter token
+POST https://localhost:7071/auth/login
+Content-Type: application/json
+
+{
+    "username": "admin",
+    "password": "password"
+}
+
+###
+
+# Listar publicações existentes para encontrar uma para teste
+GET https://localhost:7071/deploy/publications
+Authorization: Bearer {{auth_token}}
+
+###
+
+# Obter metadados atuais de uma publicação específica
+GET https://localhost:7071/deploy/publications/nome-da-publicacao/metadata
+Authorization: Bearer {{auth_token}}
+
+###
+
+# Atualizar apenas repository
+PATCH https://localhost:7071/deploy/publications/nome-da-publicacao/metadata
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "repository": "https://github.com/facebook/react.git"
+}
+
+###
+
+# Atualizar apenas branch
+PATCH https://localhost:7071/deploy/publications/nome-da-publicacao/metadata
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "branch": "develop"
+}
+
+###
+
+# Atualizar apenas buildCommand
+PATCH https://localhost:7071/deploy/publications/nome-da-publicacao/metadata
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "buildCommand": "yarn install && yarn build --production"
+}
+
+###
+
+# Atualizar múltiplos campos
+PATCH https://localhost:7071/deploy/publications/nome-da-publicacao/metadata
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "repository": "https://github.com/vercel/next.js.git",
+    "branch": "canary",
+    "buildCommand": "pnpm install && pnpm build"
+}
+
+###
+
+# Teste de erro: body vazio (deve retornar 400)
+PATCH https://localhost:7071/deploy/publications/nome-da-publicacao/metadata
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{}
+
+###
+
+# Teste de erro: deploy inexistente (deve retornar 404)
+PATCH https://localhost:7071/deploy/publications/deploy-que-nao-existe/metadata
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "repository": "https://github.com/test/test.git"
+}
