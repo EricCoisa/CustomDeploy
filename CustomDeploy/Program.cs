@@ -19,12 +19,19 @@ builder.Services.AddScoped<PublicationService>();
 // Registrar o IISManagementService
 builder.Services.AddScoped<IISManagementService>();
 
+// Registrar o GitHubService
+builder.Services.AddScoped<GitHubService>();
+builder.Services.AddHttpClient<GitHubService>();
+
 // Registrar o AdministratorService
 builder.Services.AddScoped<AdministratorService>();
 
 // Configure JWT Settings
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>();
+
+// Configure GitHub Settings
+builder.Services.Configure<GitHubSettings>(builder.Configuration.GetSection("GitHubSettings"));
 
 // Configure JWT Authentication
 builder.Services.AddAuthentication(options =>

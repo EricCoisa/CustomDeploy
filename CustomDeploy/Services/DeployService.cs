@@ -9,15 +9,17 @@ namespace CustomDeploy.Services
     {
         private readonly ILogger<DeployService> _logger;
         private readonly IISManagementService _iisManagementService;
+        private readonly GitHubService _gitHubService;
         private readonly string _workingDirectory;
         private readonly string _publicationsPath;
         private readonly string _deploysJsonPath;
         private static readonly object _deploysFileLock = new object();
 
-        public DeployService(ILogger<DeployService> logger, IISManagementService iisManagementService, IConfiguration configuration)
+        public DeployService(ILogger<DeployService> logger, IISManagementService iisManagementService, GitHubService gitHubService, IConfiguration configuration)
         {
             _logger = logger;
             _iisManagementService = iisManagementService;
+            _gitHubService = gitHubService;
             _workingDirectory = configuration.GetValue<string>("DeploySettings:WorkingDirectory") 
                 ?? Path.Combine(Path.GetTempPath(), "CustomDeploy");
             _publicationsPath = configuration.GetValue<string>("DeploySettings:PublicationsPath") 
@@ -219,6 +221,21 @@ namespace CustomDeploy.Services
         {
             try
             {
+                // Validar repositório primeiro
+                var validationResult = await _gitHubService.ValidateRepositoryAsync(repoUrl);
+                if (!validationResult.Success)
+                {
+                    _logger.LogWarning("Validação do repositório falhou: {Message}", validationResult.Message);
+                    // Continuar mesmo assim para compatibilidade com repos não-GitHub ou credenciais de sistema
+                }
+                else
+                {
+                    _logger.LogInformation("Repositório validado: {Message}", validationResult.Message);
+                }
+
+                // Gerar URL autenticada se necessário
+                var authenticatedUrl = _gitHubService.GenerateAuthenticatedCloneUrl(repoUrl);
+
                 if (Directory.Exists(repoPath))
                 {
                     _logger.LogInformation("Repositório já existe, atualizando: {RepoPath}", repoPath);
@@ -240,15 +257,18 @@ namespace CustomDeploy.Services
                 }
                 else
                 {
-                    _logger.LogInformation("Clonando repositório: {RepoUrl}", repoUrl);
+                    _logger.LogInformation("🚀 Clonando repositório com fallback inteligente: {RepoUrl}", repoUrl);
                     
-                    var cloneResult = await RunGitCommandAsync($"clone -b {branch} {repoUrl} \"{repoPath}\"", _workingDirectory);
+                    // Usar o novo método de clone com fallback
+                    var cloneResult = await _gitHubService.TryCloneWithFallbackAsync(repoUrl, branch, repoPath);
                     if (!cloneResult.Success)
                     {
                         return (false, $"Falha no clone: {cloneResult.Message}");
                     }
 
-                    return (true, "Repositório clonado com sucesso");
+                    var authMethod = cloneResult.UsedSystemCredentials ? "credenciais do sistema" : "credenciais explícitas";
+                    _logger.LogInformation("✅ Clone realizado com sucesso usando {AuthMethod}", authMethod);
+                    return (true, $"Repositório clonado com sucesso usando {authMethod}");
                 }
             }
             catch (Exception ex)
