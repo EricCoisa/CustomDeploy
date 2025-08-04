@@ -1,8 +1,10 @@
 import { useEffect } from 'react';
 import { Provider } from 'react-redux';
+import { PersistGate } from 'redux-persist/integration/react';
 import { ToastContainer } from 'react-toastify';
-import { store } from './store';
+import { store, persistor } from './store';
 import { AppRoutes } from './infra/routes';
+import { AppLoadingScreen } from './components/AppLoadingScreen';
 import { tokenMonitor } from './services/tokenMonitor';
 import { logoutUser } from './store/login/actions';
 import './App.css';
@@ -26,19 +28,21 @@ function App() {
 
   return (
     <Provider store={store}>
-      <AppRoutes />
-      <ToastContainer
-        position="top-right"
-        autoClose={5000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="light"
-      />
+      <PersistGate loading={<AppLoadingScreen />} persistor={persistor}>
+        <AppRoutes />
+        <ToastContainer
+          position="top-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+        />
+      </PersistGate>
     </Provider>
   );
 }

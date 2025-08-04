@@ -8,7 +8,6 @@ export interface DashboardStats {
   totalSites: number;
   totalApplications: number;
   totalAppPools: number;
-  // totalPlatforms: number; // Para quando o endpoint estiver disponível
 }
 
 export interface DashboardData {
@@ -16,6 +15,27 @@ export interface DashboardData {
   recentDeployments: Publication[];
   isLoading: boolean;
   error?: string;
+}
+
+// Interfaces para respostas da API
+interface AdminStatusResponse {
+  isAdministrator?: boolean;
+  currentUser?: {
+    name: string;
+    domain: string;
+    fullName: string;
+  };
+  canManageIIS?: boolean;
+  instructions?: string[];
+  message?: string;
+  timestamp?: string;
+}
+
+interface GitHubConnectivityResponse {
+  success?: boolean;
+  connected?: boolean;
+  isConnected?: boolean;
+  message?: string;
 }
 
 class DashboardService {
@@ -116,29 +136,68 @@ class DashboardService {
   async getSystemStatus(): Promise<{
     iisStatus: 'online' | 'offline' | 'unknown';
     apiStatus: 'online' | 'offline';
+    adminStatus?: 'admin' | 'not-admin' | 'unknown';
+    githubStatus?: 'connected' | 'disconnected' | 'unknown';
   }> {
     try {
-      // Testar se a API está respondendo
-      const apiTest = await api.get('/health').catch(() => null);
-      const apiStatus = apiTest ? 'online' : 'offline';
-
-      // Testar se o IIS está acessível (tentando buscar sites)
+      let apiStatus: 'online' | 'offline' = 'offline';
       let iisStatus: 'online' | 'offline' | 'unknown' = 'unknown';
+      let adminStatus: 'admin' | 'not-admin' | 'unknown' = 'unknown';
+      let githubStatus: 'connected' | 'disconnected' | 'unknown' = 'unknown';
+
+      // Testar se a API está respondendo através do endpoint de admin-status
       try {
-        const iisTest = await iisService.getSites();
-        iisStatus = iisTest.success ? 'online' : 'offline';
+        const adminResponse = await api.get('/iis/admin-status');
+        if (adminResponse) {
+          apiStatus = 'online';
+          // Verificar se tem privilégios de admin
+          const responseData = adminResponse.data as AdminStatusResponse;
+          console.log('🔍 Verificando status do usuário:', responseData);
+          if (responseData?.isAdministrator === true || responseData?.canManageIIS === true) {
+            adminStatus = 'admin';
+          } else {
+            adminStatus = 'not-admin';
+          }
+        }
       } catch {
-        iisStatus = 'offline';
+        apiStatus = 'offline';
+      }
+
+      // Se API está online, testar IIS através do endpoint de sites
+      if (apiStatus === 'online') {
+        try {
+          const iisTest = await iisService.getSites();
+          iisStatus = iisTest.success ? 'online' : 'offline';
+        } catch {
+          iisStatus = 'offline';
+        }
+
+        // Testar conectividade do GitHub
+        try {
+          const githubResponse = await api.get('/github/test-connectivity');
+          const githubData = githubResponse?.data as GitHubConnectivityResponse;
+          if (githubData?.success === true || githubData?.connected === true || githubData?.isConnected === true) {
+            githubStatus = 'connected';
+          } else {
+            githubStatus = 'disconnected';
+          }
+        } catch {
+          githubStatus = 'disconnected';
+        }
       }
 
       return {
         iisStatus,
-        apiStatus
+        apiStatus,
+        adminStatus,
+        githubStatus
       };
     } catch {
       return {
         iisStatus: 'unknown',
-        apiStatus: 'offline'
+        apiStatus: 'offline',
+        adminStatus: 'unknown',
+        githubStatus: 'unknown'
       };
     }
   }

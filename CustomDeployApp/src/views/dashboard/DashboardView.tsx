@@ -29,8 +29,11 @@ export const DashboardView: React.FC = () => {
     recentDeployments, 
     systemStatus, 
     isLoading, 
-    error 
+    error,
+    lastUpdated
   } = useAppSelector(state => state.dashboard);
+  
+  const { isAutoLogin } = useAppSelector(state => state.login);
 
   // Local state para modais de exemplo
   const [showModal, setShowModal] = useState(false);
@@ -40,12 +43,49 @@ export const DashboardView: React.FC = () => {
 
   // Carregar dados do dashboard ao montar o componente
   useEffect(() => {
-    if (!hasInitialized.current) {
+    // Verificar se temos dados válidos persistidos
+    const hasValidPersistedData = () => {
+      // Se foi auto login, sempre forçar reload dos dados
+      if (isAutoLogin) {
+        console.log('🔄 Auto login detectado, forçando reload dos dados');
+        return false;
+      }
+      
+      // Se temos lastUpdated, significa que os dados foram carregados anteriormente
+      if (lastUpdated) {
+        const lastUpdate = new Date(lastUpdated);
+        const now = new Date();
+        const diffMinutes = (now.getTime() - lastUpdate.getTime()) / (1000 * 60);
+        
+        // Se os dados são recentes (menos de 10 minutos), usar dados persistidos
+        if (diffMinutes < 10) {
+          console.log(`✅ Usando dados persistidos (${diffMinutes.toFixed(1)} min atrás)`);
+          return true;
+        }
+      }
+      return false;
+    };
+
+    // Só carregar se não temos dados válidos persistidos OU se nunca foi inicializado
+    if (!hasInitialized.current && !hasValidPersistedData()) {
+      console.log('🔄 Carregando dados do dashboard pela primeira vez...');
       const thunkAction = fetchDashboardData();
       dispatch(thunkAction);
       hasInitialized.current = true;
+    } else if (hasValidPersistedData()) {
+      console.log('✅ Utilizando dados persistidos válidos');
+      hasInitialized.current = true;
     }
-  }, [dispatch]);
+  }, [dispatch, lastUpdated, isAutoLogin]);
+
+  // Efeito separado para verificar dados persistidos
+  useEffect(() => {
+    if (hasInitialized.current && systemStatus) {
+      if (systemStatus.apiStatus !== 'offline' || systemStatus.iisStatus !== 'unknown') {
+        console.log('✅ Status do sistema carregado do cache');
+      }
+    }
+  }, [systemStatus]);
 
   const handleRefresh = () => {
     const thunkAction = fetchDashboardData();
@@ -74,6 +114,7 @@ export const DashboardView: React.FC = () => {
           <p>
             Visão geral do sistema de deploy. Acompanhe estatísticas, 
             deployments recentes e o status dos serviços.
+            {isAutoLogin && <span style={{ color: '#10b981', marginLeft: '8px' }}>✨ Sessão restaurada automaticamente</span>}
           </p>
           
           {/* Status do Sistema */}
@@ -85,6 +126,20 @@ export const DashboardView: React.FC = () => {
               IIS {systemStatus.iisStatus === 'online' ? 'Online' : 
                    systemStatus.iisStatus === 'offline' ? 'Offline' : 'Desconhecido'}
             </StatusIndicator>
+            {systemStatus.adminStatus && (
+              <StatusIndicator 
+                status={systemStatus.adminStatus === 'admin' ? 'online' : 'offline'}
+              >
+                Admin {systemStatus.adminStatus === 'admin' ? 'Sim' : 'Não'}
+              </StatusIndicator>
+            )}
+            {systemStatus.githubStatus && (
+              <StatusIndicator 
+                status={systemStatus.githubStatus === 'connected' ? 'online' : 'offline'}
+              >
+                GitHub {systemStatus.githubStatus === 'connected' ? 'Conectado' : 'Desconectado'}
+              </StatusIndicator>
+            )}
           </SystemStatusContainer>
           
           {/* Botão de atualizar */}

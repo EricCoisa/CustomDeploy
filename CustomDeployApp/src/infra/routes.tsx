@@ -1,5 +1,5 @@
 import React from 'react';
-import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
 import { LoginView } from '../views/login/LoginView';
 import { DashboardView } from '../views/dashboard';
 import { TestView } from '../views/test';
@@ -9,17 +9,17 @@ import { DeployView } from '../views/deploy';
 import { useAppSelector } from '../store';
 
 // Componente para proteger rotas que precisam de autenticação
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const ProtectedRoute: React.FC = () => {
   const { isAuthenticated } = useAppSelector(state => state.login);
   
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
+  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
 };
 
 // Componente para redirecionar usuários autenticados da página de login
-const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const PublicRoute: React.FC = () => {
   const { isAuthenticated } = useAppSelector(state => state.login);
   
-  return !isAuthenticated ? <>{children}</> : <Navigate to="/dashboard" replace />;
+  return !isAuthenticated ? <Outlet /> : <Navigate to="/dashboard" replace />;
 };
 
 // Componente para página não encontrada
@@ -49,51 +49,39 @@ const router = createBrowserRouter([
   },
   {
     path: '/login',
-    element: (
-      <PublicRoute>
-        <LoginView />
-      </PublicRoute>
-    ),
+    element: <PublicRoute />,
+    children: [
+      {
+        index: true,
+        element: <LoginView />,
+      },
+    ],
   },
   {
-    path: '/dashboard',
-    element: (
-      <ProtectedRoute>
-        <DashboardView />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/test',
-    element: (
-      <ProtectedRoute>
-        <TestView />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/iis',
-    element: (
-      <ProtectedRoute>
-        <IISView />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/publications',
-    element: (
-      <ProtectedRoute>
-        <PublicationsView />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/deploy',
-    element: (
-      <ProtectedRoute>
-        <DeployView />
-      </ProtectedRoute>
-    ),
+    path: '/',
+    element: <ProtectedRoute />,
+    children: [
+      {
+        path: 'dashboard',
+        element: <DashboardView />,
+      },
+      {
+        path: 'test',
+        element: <TestView />,
+      },
+      {
+        path: 'iis',
+        element: <IISView />,
+      },
+      {
+        path: 'publications',
+        element: <PublicationsView />,
+      },
+      {
+        path: 'deploy',
+        element: <DeployView />,
+      },
+    ],
   },
   {
     path: '*',

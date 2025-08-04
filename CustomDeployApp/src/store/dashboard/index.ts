@@ -13,6 +13,8 @@ const initialState: DashboardState = {
   systemStatus: {
     iisStatus: 'unknown',
     apiStatus: 'offline',
+    adminStatus: 'unknown',
+    githubStatus: 'unknown',
   },
   isLoading: false,
   error: null,

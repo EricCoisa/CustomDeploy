@@ -10,6 +10,8 @@ export interface DashboardStats {
 export interface SystemStatus {
   iisStatus: 'online' | 'offline' | 'unknown';
   apiStatus: 'online' | 'offline';
+  adminStatus?: 'admin' | 'not-admin' | 'unknown';
+  githubStatus?: 'connected' | 'disconnected' | 'unknown';
 }
 
 export interface DashboardState {

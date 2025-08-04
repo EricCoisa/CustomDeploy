@@ -3,6 +3,7 @@ import {
   LOGIN_REQUEST,
   LOGIN_SUCCESS,
   LOGIN_FAILURE,
+  AUTO_LOGIN_SUCCESS,
   LOGOUT,
   type LoginCredentials,
   type LoginActionTypes,
@@ -17,6 +18,11 @@ export const loginRequest = (): LoginActionTypes => ({
 
 export const loginSuccess = (user: User): LoginActionTypes => ({
   type: LOGIN_SUCCESS,
+  payload: user,
+});
+
+export const autoLoginSuccess = (user: User): LoginActionTypes => ({
+  type: AUTO_LOGIN_SUCCESS,
   payload: user,
 });
 
@@ -90,7 +96,14 @@ export const checkAuthState = () => {
         
         if (user) {
           console.log('🔄 Token válido encontrado, restaurando sessão para:', user.username);
-          dispatch(loginSuccess(user));
+          console.log('🧹 Limpando dados persistidos do dashboard para refresh automático...');
+          
+          // Limpar apenas os dados do dashboard do localStorage
+          const dashboardKey = 'persist:dashboard';
+          localStorage.removeItem(dashboardKey);
+          console.log('✅ Cache do dashboard limpo');
+          
+          dispatch(autoLoginSuccess(user));
         } else {
           console.log('❌ Dados do usuário não encontrados, fazendo logout');
           dispatch(logout());

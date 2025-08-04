@@ -2,6 +2,7 @@ import {
   LOGIN_REQUEST,
   LOGIN_SUCCESS,
   LOGIN_FAILURE,
+  AUTO_LOGIN_SUCCESS,
   LOGOUT,
   type LoginState,
   type LoginActionTypes,
@@ -14,11 +15,12 @@ const initialState: LoginState = {
   error: null,
   isAuthenticated: false,
   user: null,
+  isAutoLogin: false,
 };
 
 // Type guard para verificar se a action é do tipo LoginActionTypes
 const isLoginAction = (action: AnyAction): action is LoginActionTypes => {
-  return [LOGIN_REQUEST, LOGIN_SUCCESS, LOGIN_FAILURE, LOGOUT].includes(action.type as typeof LOGIN_REQUEST);
+  return [LOGIN_REQUEST, LOGIN_SUCCESS, LOGIN_FAILURE, AUTO_LOGIN_SUCCESS, LOGOUT].includes(action.type as typeof LOGIN_REQUEST);
 };
 
 // Reducer
@@ -45,6 +47,17 @@ const loginReducer = (
         error: null,
         isAuthenticated: true,
         user: action.payload,
+        isAutoLogin: false, // Login manual
+      };
+
+    case AUTO_LOGIN_SUCCESS:
+      return {
+        ...state,
+        isLoading: false,
+        error: null,
+        isAuthenticated: true,
+        user: action.payload,
+        isAutoLogin: true, // Login automático
       };
 
     case LOGIN_FAILURE:
@@ -54,6 +67,7 @@ const loginReducer = (
         error: action.payload,
         isAuthenticated: false,
         user: null,
+        isAutoLogin: false,
       };
 
     case LOGOUT:
@@ -63,6 +77,7 @@ const loginReducer = (
         error: null,
         isAuthenticated: false,
         user: null,
+        isAutoLogin: false,
       };
 
     default:

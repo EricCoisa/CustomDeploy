@@ -10,6 +10,7 @@ export interface LoginState {
   error: string | null;
   isAuthenticated: boolean;
   user: User | null;
+  isAutoLogin: boolean; // Indica se foi login automático por token
 }
 
 // Tipos para as actions (compatível com a API)
@@ -22,6 +23,7 @@ export interface LoginCredentials {
 export const LOGIN_REQUEST = 'LOGIN_REQUEST' as const;
 export const LOGIN_SUCCESS = 'LOGIN_SUCCESS' as const;
 export const LOGIN_FAILURE = 'LOGIN_FAILURE' as const;
+export const AUTO_LOGIN_SUCCESS = 'AUTO_LOGIN_SUCCESS' as const;
 export const LOGOUT = 'LOGOUT' as const;
 
 // Action Interfaces
@@ -31,6 +33,11 @@ export interface LoginRequestAction {
 
 export interface LoginSuccessAction {
   type: typeof LOGIN_SUCCESS;
+  payload: User;
+}
+
+export interface AutoLoginSuccessAction {
+  type: typeof AUTO_LOGIN_SUCCESS;
   payload: User;
 }
 
@@ -46,5 +53,6 @@ export interface LogoutAction {
 export type LoginActionTypes =
   | LoginRequestAction
   | LoginSuccessAction
+  | AutoLoginSuccessAction
   | LoginFailureAction
   | LogoutAction;
