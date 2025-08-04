@@ -16,5 +16,10 @@ namespace CustomDeploy.Models
         /// Novo comando de build (opcional)
         /// </summary>
         public string? BuildCommand { get; set; }
+
+        /// <summary>
+        /// Novo diretório de saída do build (opcional)
+        /// </summary>
+        public string? BuildOutput { get; set; }
     }
 }

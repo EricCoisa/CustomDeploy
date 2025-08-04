@@ -32,7 +32,7 @@ export const DeployModal: React.FC<DeployModalProps> = ({
     repoUrl: publication.repoUrl || publication.repository || '',
     branch: publication.branch || 'main',
     buildCommand: publication.buildCommand || 'npm install && npm run build',
-    buildOutput: 'dist',
+    buildOutput: publication.buildOutput || 'dist',
   } : undefined;
 
   return (

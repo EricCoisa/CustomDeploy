@@ -11,6 +11,8 @@ export interface LoginState {
   isAuthenticated: boolean;
   user: User | null;
   isAutoLogin: boolean; // Indica se foi login automático por token
+  isValidatingToken: boolean; // Indica se está validando token na inicialização
+  apiStatus: 'online' | 'offline' | 'checking'; // Status da API
 }
 
 // Tipos para as actions (compatível com a API)
@@ -25,6 +27,10 @@ export const LOGIN_SUCCESS = 'LOGIN_SUCCESS' as const;
 export const LOGIN_FAILURE = 'LOGIN_FAILURE' as const;
 export const AUTO_LOGIN_SUCCESS = 'AUTO_LOGIN_SUCCESS' as const;
 export const LOGOUT = 'LOGOUT' as const;
+export const TOKEN_VALIDATION_START = 'TOKEN_VALIDATION_START' as const;
+export const TOKEN_VALIDATION_SUCCESS = 'TOKEN_VALIDATION_SUCCESS' as const;
+export const TOKEN_VALIDATION_FAILURE = 'TOKEN_VALIDATION_FAILURE' as const;
+export const API_STATUS_UPDATE = 'API_STATUS_UPDATE' as const;
 
 // Action Interfaces
 export interface LoginRequestAction {
@@ -50,9 +56,32 @@ export interface LogoutAction {
   type: typeof LOGOUT;
 }
 
+export interface TokenValidationStartAction {
+  type: typeof TOKEN_VALIDATION_START;
+}
+
+export interface TokenValidationSuccessAction {
+  type: typeof TOKEN_VALIDATION_SUCCESS;
+  payload: User;
+}
+
+export interface TokenValidationFailureAction {
+  type: typeof TOKEN_VALIDATION_FAILURE;
+  payload: string;
+}
+
+export interface ApiStatusUpdateAction {
+  type: typeof API_STATUS_UPDATE;
+  payload: 'online' | 'offline' | 'checking';
+}
+
 export type LoginActionTypes =
   | LoginRequestAction
   | LoginSuccessAction
   | AutoLoginSuccessAction
   | LoginFailureAction
-  | LogoutAction;
+  | LogoutAction
+  | TokenValidationStartAction
+  | TokenValidationSuccessAction
+  | TokenValidationFailureAction
+  | ApiStatusUpdateAction;

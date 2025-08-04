@@ -133,6 +133,44 @@ class AuthService {
     
     return expirationDate <= fiveMinutesFromNow;
   }
+
+  // Verificar se a API está online
+  async checkHealth(): Promise<ApiResponse<{ message: string; status: string }>> {
+    try {
+      console.log('🏥 Verificando saúde da API...');
+      const response = await api.get<{ message: string; status: string }>('/healthcheck');
+      console.log('✅ Resposta do healthcheck:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Erro no healthcheck:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro de conexão';
+      
+      return {
+        success: false,
+        data: { message: 'API Offline', status: 'unhealthy' },
+        message: errorMessage,
+      };
+    }
+  }
+
+  // Validar token com a API
+  async validateToken(): Promise<ApiResponse<{ message: string; isValid: boolean; username?: string }>> {
+    try {
+      console.log('🔐 Validando token com a API...');
+      const response = await api.get<{ message: string; isValid: boolean; username?: string }>('/auth/validate-token');
+      console.log('✅ Resposta da validação:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Erro na validação de token:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro na validação';
+      
+      return {
+        success: false,
+        data: { message: 'Token inválido', isValid: false },
+        message: errorMessage,
+      };
+    }
+  }
 }
 
 // Exportar instância única

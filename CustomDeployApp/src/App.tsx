@@ -5,6 +5,7 @@ import { ToastContainer } from 'react-toastify';
 import { store, persistor } from './store';
 import { AppRoutes } from './infra/routes';
 import { AppLoadingScreen } from './components/AppLoadingScreen';
+import { AuthInitializer } from './components/AuthInitializer';
 import { tokenMonitor } from './services/tokenMonitor';
 import { logoutUser } from './store/login/actions';
 import './App.css';
@@ -29,19 +30,21 @@ function App() {
   return (
     <Provider store={store}>
       <PersistGate loading={<AppLoadingScreen />} persistor={persistor}>
-        <AppRoutes />
-        <ToastContainer
-          position="top-right"
-          autoClose={5000}
-          hideProgressBar={false}
-          newestOnTop={false}
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          theme="light"
-        />
+        <AuthInitializer>
+          <AppRoutes />
+          <ToastContainer
+            position="top-right"
+            autoClose={5000}
+            hideProgressBar={false}
+            newestOnTop={false}
+            closeOnClick
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+            theme="light"
+          />
+        </AuthInitializer>
       </PersistGate>
     </Provider>
   );

@@ -6,13 +6,19 @@ import { TestView } from '../views/test';
 import { IISView } from '../views/iis';
 import { PublicationsView } from '../views/publications';
 import { DeployView } from '../views/deploy';
+import { ApiStatusIndicator } from '../components/common/ApiStatusIndicator';
 import { useAppSelector } from '../store';
 
 // Componente para proteger rotas que precisam de autenticação
 const ProtectedRoute: React.FC = () => {
   const { isAuthenticated } = useAppSelector(state => state.login);
   
-  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
+  return isAuthenticated ? (
+    <>
+      <ApiStatusIndicator />
+      <Outlet />
+    </>
+  ) : <Navigate to="/login" replace />;
 };
 
 // Componente para redirecionar usuários autenticados da página de login

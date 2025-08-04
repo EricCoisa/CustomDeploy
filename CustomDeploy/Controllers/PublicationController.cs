@@ -321,7 +321,8 @@ namespace CustomDeploy.Controllers
                     decodedName, 
                     request.Repository, 
                     request.Branch, 
-                    request.BuildCommand);
+                    request.BuildCommand,
+                    request.BuildOutput);
 
                 if (!result.Success)
                 {
@@ -493,6 +494,7 @@ namespace CustomDeploy.Controllers
                     request.RepoUrl,
                     request.Branch,
                     request.BuildCommand,
+                    request.BuildOutput,
                     targetPath
                 );
 

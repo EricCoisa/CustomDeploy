@@ -197,6 +197,7 @@ namespace CustomDeploy.Services
                 publication.RepoUrl = metadata.Repository;
                 publication.Branch = metadata.Branch;
                 publication.BuildCommand = metadata.BuildCommand;
+                publication.BuildOutput = metadata.BuildOutput;
                 publication.DeployedAt = metadata.DeployedAt;
             }
 

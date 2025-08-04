@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -36,6 +37,31 @@ namespace CustomDeploy.Controllers
                 Token = token,
                 Expiration = expiration
             });
+        }
+
+        [HttpGet("validate-token")]
+        [Authorize]
+        public IActionResult ValidateToken()
+        {
+            try
+            {
+                // Se chegou até aqui, o token é válido (middleware de Authorization já verificou)
+                var username = User.Identity?.Name ?? "Unknown";
+                
+                return Ok(new { 
+                    message = "Token is valid", 
+                    username = username,
+                    isValid = true 
+                });
+            }
+            catch (Exception ex)
+            {
+                return Unauthorized(new { 
+                    message = "Token is invalid", 
+                    isValid = false,
+                    error = ex.Message 
+                });
+            }
         }
 
         private string GenerateToken(string username)

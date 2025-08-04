@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LoginForm } from './components/LoginForm';
 import { useAppDispatch, useAppSelector } from '../../store';
-import { loginUser, checkAuthState } from '../../store/login/actions';
+import { loginUser } from '../../store/login/actions';
 import { type LoginCredentials } from '../../store/login/types';
 import {
   LoginContainer,
@@ -21,12 +21,7 @@ export const LoginView: React.FC = () => {
   const navigate = useNavigate();
   const { isLoading, error, isAuthenticated } = useAppSelector(state => state.login);
 
-  // Verificar se usuário já está logado ao carregar a página
-  useEffect(() => {
-    dispatch(checkAuthState());
-  }, [dispatch]);
-
-  // Redirecionar se já estiver autenticado
+  // Redirecionar se já estiver autenticado (AuthInitializer já fez a verificação)
   useEffect(() => {
     if (isAuthenticated) {
       console.log('✅ Usuário autenticado! Redirecionando para dashboard...');

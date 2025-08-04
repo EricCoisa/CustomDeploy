@@ -4,6 +4,10 @@ import {
   LOGIN_FAILURE,
   AUTO_LOGIN_SUCCESS,
   LOGOUT,
+  TOKEN_VALIDATION_START,
+  TOKEN_VALIDATION_SUCCESS,
+  TOKEN_VALIDATION_FAILURE,
+  API_STATUS_UPDATE,
   type LoginState,
   type LoginActionTypes,
 } from '../types';
@@ -16,11 +20,23 @@ const initialState: LoginState = {
   isAuthenticated: false,
   user: null,
   isAutoLogin: false,
+  isValidatingToken: false,
+  apiStatus: 'online', // Começar como online e verificar depois
 };
 
 // Type guard para verificar se a action é do tipo LoginActionTypes
 const isLoginAction = (action: AnyAction): action is LoginActionTypes => {
-  return [LOGIN_REQUEST, LOGIN_SUCCESS, LOGIN_FAILURE, AUTO_LOGIN_SUCCESS, LOGOUT].includes(action.type as typeof LOGIN_REQUEST);
+  return [
+    LOGIN_REQUEST, 
+    LOGIN_SUCCESS, 
+    LOGIN_FAILURE, 
+    AUTO_LOGIN_SUCCESS, 
+    LOGOUT,
+    TOKEN_VALIDATION_START,
+    TOKEN_VALIDATION_SUCCESS,
+    TOKEN_VALIDATION_FAILURE,
+    API_STATUS_UPDATE
+  ].includes(action.type as typeof LOGIN_REQUEST);
 };
 
 // Reducer
@@ -78,6 +94,44 @@ const loginReducer = (
         isAuthenticated: false,
         user: null,
         isAutoLogin: false,
+        isValidatingToken: false,
+        apiStatus: 'online',
+      };
+
+    case TOKEN_VALIDATION_START:
+      return {
+        ...state,
+        isValidatingToken: true,
+        error: null,
+        apiStatus: 'checking',
+      };
+
+    case TOKEN_VALIDATION_SUCCESS:
+      return {
+        ...state,
+        isValidatingToken: false,
+        error: null,
+        isAuthenticated: true,
+        user: action.payload,
+        isAutoLogin: true,
+        apiStatus: 'online',
+      };
+
+    case TOKEN_VALIDATION_FAILURE:
+      return {
+        ...state,
+        isValidatingToken: false,
+        error: action.payload,
+        isAuthenticated: false,
+        user: null,
+        isAutoLogin: false,
+        apiStatus: state.apiStatus, // Manter status atual da API
+      };
+
+    case API_STATUS_UPDATE:
+      return {
+        ...state,
+        apiStatus: action.payload,
       };
 
     default:

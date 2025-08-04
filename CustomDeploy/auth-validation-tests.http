@@ -1,0 +1,38 @@
+### Testes dos novos endpoints de autenticação
+
+# 1. Teste do Healthcheck
+GET http://localhost:5092/healthcheck
+Content-Type: application/json
+
+###
+
+# 2. Teste de validação de token (sem token - deve retornar 401)
+GET http://localhost:5092/auth/validate-token
+Content-Type: application/json
+
+###
+
+# 3. Login para obter token
+POST http://localhost:5092/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "password"
+}
+
+###
+
+# 4. Teste de validação de token (com token válido)
+GET http://localhost:5092/auth/validate-token
+Content-Type: application/json
+Authorization: Bearer {{token_aqui}}
+
+###
+
+# 5. Teste com token inválido
+GET http://localhost:5092/auth/validate-token
+Content-Type: application/json
+Authorization: Bearer token_invalido_aqui
+
+###

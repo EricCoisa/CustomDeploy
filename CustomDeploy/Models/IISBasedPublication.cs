@@ -41,6 +41,11 @@ namespace CustomDeploy.Models
         public string? BuildCommand { get; set; }
 
         /// <summary>
+        /// Diretório de saída do build (do arquivo de metadados)
+        /// </summary>
+        public string? BuildOutput { get; set; }
+
+        /// <summary>
         /// Data do último deploy (do arquivo de metadados)
         /// </summary>
         public DateTime? DeployedAt { get; set; }

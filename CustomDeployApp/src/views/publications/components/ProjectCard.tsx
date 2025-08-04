@@ -9,6 +9,7 @@ interface ProjectCardProps {
   onDelete?: (name: string) => void;
   onDeleteMetadataOnly?: (name: string) => void;
   onUpdateMetadata?: (publication: Publication) => void;
+  onReDeploy?: (publication: Publication) => void;
 }
 
 const Card = styled.div`
@@ -124,12 +125,17 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
   onEdit,
   onDelete,
   onDeleteMetadataOnly,
-  onUpdateMetadata
+  onUpdateMetadata,
+  onReDeploy
 }) => {
   const getStatusText = () => {
     if (!publication.exists) return 'Não encontrado no IIS';
     if (!publication.hasMetadata) return 'Sem metadados';
     return 'Ativo';
+  };
+
+  const isActive = () => {
+    return publication.exists && publication.hasMetadata;
   };
 
   const formatSize = (sizeMB: number) => {
@@ -183,6 +189,13 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
         </InfoSection>
 
         <InfoSection>
+          <InfoLabel>Saída do Build</InfoLabel>
+          <InfoValue className={!publication.buildOutput ? 'empty' : ''}>
+            {publication.buildOutput || 'Não configurado'}
+          </InfoValue>
+        </InfoSection>
+
+        <InfoSection>
           <InfoLabel>Tamanho</InfoLabel>
           <InfoValue>{formatSize(publication.sizeMB)}</InfoValue>
         </InfoSection>
@@ -199,6 +212,16 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
       </PathInfo>
 
       <ButtonGroup>
+        {isActive() && onReDeploy && (
+          <Button
+            size="small"
+            variant="primary"
+            onClick={() => onReDeploy(publication)}
+          >
+            🚀 Re-Deploy
+          </Button>
+        )}
+
         {publication.hasMetadata && onUpdateMetadata && (
           <Button
             size="small"

@@ -624,6 +624,7 @@ namespace CustomDeploy.Services
                     Repository = request.RepoUrl,
                     Branch = request.Branch,
                     BuildCommand = request.BuildCommand,
+                    BuildOutput = request.BuildOutput,
                     TargetPath = normalizedTargetPath,
                     DeployedAt = DateTime.UtcNow
                 };
@@ -673,6 +674,7 @@ namespace CustomDeploy.Services
                     Repository = request.RepoUrl,
                     Branch = request.Branch,
                     BuildCommand = request.BuildCommand,
+                    BuildOutput = request.BuildOutput,
                     TargetPath = normalizedTargetPath,
                     DeployedAt = DateTime.UtcNow
                 };
@@ -950,6 +952,7 @@ namespace CustomDeploy.Services
                         Repository = "N/A (Criado automaticamente)",
                         Branch = "N/A",
                         BuildCommand = "N/A",
+                        BuildOutput = "N/A",
                         TargetPath = normalizedPath,
                         DeployedAt = directoryInfo.CreationTime,
                         Exists = true
@@ -1085,18 +1088,20 @@ namespace CustomDeploy.Services
         }
 
         /// <summary>
-        /// Atualiza metadados específicos de um deploy (Repository, Branch, BuildCommand)
+        /// Atualiza metadados específicos de um deploy (Repository, Branch, BuildCommand, BuildOutput)
         /// </summary>
         /// <param name="name">Nome do deploy para busca</param>
         /// <param name="repository">Novo repository (opcional)</param>
         /// <param name="branch">Nova branch (opcional)</param>
         /// <param name="buildCommand">Novo build command (opcional)</param>
+        /// <param name="buildOutput">Novo build output (opcional)</param>
         /// <returns>Resultado da operação de atualização</returns>
         public (bool Success, string Message, DeployMetadata? UpdatedDeploy) UpdateDeployMetadata(
             string name, 
             string? repository = null, 
             string? branch = null, 
-            string? buildCommand = null)
+            string? buildCommand = null,
+            string? buildOutput = null)
         {
             if (string.IsNullOrWhiteSpace(name))
             {
@@ -1106,9 +1111,10 @@ namespace CustomDeploy.Services
             // Verificar se pelo menos um campo foi fornecido para atualização
             if (string.IsNullOrWhiteSpace(repository) && 
                 string.IsNullOrWhiteSpace(branch) && 
-                string.IsNullOrWhiteSpace(buildCommand))
+                string.IsNullOrWhiteSpace(buildCommand) &&
+                string.IsNullOrWhiteSpace(buildOutput))
             {
-                return (false, "Pelo menos um campo deve ser fornecido para atualização (Repository, Branch ou BuildCommand)", null);
+                return (false, "Pelo menos um campo deve ser fornecido para atualização (Repository, Branch, BuildCommand ou BuildOutput)", null);
             }
 
             lock (_deploysFileLock)
@@ -1134,6 +1140,7 @@ namespace CustomDeploy.Services
                     var originalRepository = deployToUpdate.Repository;
                     var originalBranch = deployToUpdate.Branch;
                     var originalBuildCommand = deployToUpdate.BuildCommand;
+                    var originalBuildOutput = deployToUpdate.BuildOutput;
 
                     // Atualizar apenas os campos fornecidos
                     if (!string.IsNullOrWhiteSpace(repository))
@@ -1157,6 +1164,13 @@ namespace CustomDeploy.Services
                             originalBuildCommand, deployToUpdate.BuildCommand);
                     }
 
+                    if (!string.IsNullOrWhiteSpace(buildOutput))
+                    {
+                        deployToUpdate.BuildOutput = buildOutput.Trim();
+                        _logger.LogInformation("BuildOutput atualizado: '{OldValue}' -> '{NewValue}'", 
+                            originalBuildOutput, deployToUpdate.BuildOutput);
+                    }
+
                     // Salvar alterações
                     SaveAllDeployMetadata(allDeploys);
 
@@ -1170,6 +1184,8 @@ namespace CustomDeploy.Services
                         changes.Add($"Branch: '{originalBranch}' → '{deployToUpdate.Branch}'");
                     if (!string.IsNullOrWhiteSpace(buildCommand)) 
                         changes.Add($"BuildCommand: '{originalBuildCommand}' → '{deployToUpdate.BuildCommand}'");
+                    if (!string.IsNullOrWhiteSpace(buildOutput)) 
+                        changes.Add($"BuildOutput: '{originalBuildOutput}' → '{deployToUpdate.BuildOutput}'");
 
                     var detailedMessage = $"Metadados do deploy '{name}' atualizados. Alterações: {string.Join(", ", changes)}";
 
@@ -1271,10 +1287,11 @@ namespace CustomDeploy.Services
         /// <param name="repository">URL do repositório</param>
         /// <param name="branch">Branch do repositório</param>
         /// <param name="buildCommand">Comando de build</param>
+        /// <param name="buildOutput">Diretório de saída do build</param>
         /// <param name="targetPath">Caminho de destino completo</param>
         /// <returns>Resultado da operação</returns>
         public (bool Success, string Message, DeployMetadata? Metadata) CreateMetadataOnly(
-            string name, string repository, string branch, string buildCommand, string targetPath)
+            string name, string repository, string branch, string buildCommand, string buildOutput, string targetPath)
         {
             try
             {
@@ -1300,6 +1317,11 @@ namespace CustomDeploy.Services
                     return (false, "BuildCommand é obrigatório", null);
                 }
 
+                if (string.IsNullOrWhiteSpace(buildOutput))
+                {
+                    return (false, "BuildOutput é obrigatório", null);
+                }
+
                 if (string.IsNullOrWhiteSpace(targetPath))
                 {
                     return (false, "TargetPath é obrigatório", null);
@@ -1313,6 +1335,7 @@ namespace CustomDeploy.Services
                     Repository = repository.Trim(),
                     Branch = branch.Trim(),
                     BuildCommand = buildCommand.Trim(),
+                    BuildOutput = buildOutput.Trim(),
                     TargetPath = normalizedTargetPath,
                     DeployedAt = DateTime.MinValue, // Usar MinValue para indicar que nunca foi deployed
                     Exists = Directory.Exists(normalizedTargetPath)

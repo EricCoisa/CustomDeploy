@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ProtectedLayout, Button } from '../../components';
-import { ProjectCard, StatsCard } from './components';
+import { ProjectCard, StatsCard, ReDeployModal } from './components';
 import { useAppDispatch, useAppSelector } from '../../store';
 import {
   fetchPublications,
@@ -10,6 +10,7 @@ import {
   clearErrors
 } from '../../store/publications/actions';
 import type { Publication } from '../../store/publications/types';
+import { toast } from 'react-toastify';
 import styled from 'styled-components';
 
 const ContentCard = styled.div`
@@ -136,6 +137,13 @@ export const PublicationsView: React.FC = () => {
   } = useAppSelector(state => state.publications);
 
   const [filter, setFilter] = useState<FilterType>('all');
+  const [reDeployModal, setReDeployModal] = useState<{
+    isOpen: boolean;
+    publication: Publication | null;
+  }>({
+    isOpen: false,
+    publication: null
+  });
 
   useEffect(() => {
     // Carregar dados ao montar o componente
@@ -195,6 +203,31 @@ export const PublicationsView: React.FC = () => {
         dispatch(fetchPublicationsStats());
       }
     }
+  };
+
+  const handleReDeploy = (publication: Publication) => {
+    setReDeployModal({
+      isOpen: true,
+      publication
+    });
+  };
+
+  const handleReDeployModalClose = () => {
+    setReDeployModal({
+      isOpen: false,
+      publication: null
+    });
+  };
+
+  const handleReDeploySuccess = (result: Record<string, unknown>) => {
+    toast.success(`Re-Deploy executado com sucesso! ${result.message || ''}`);
+    // Atualizar dados após deploy bem-sucedido
+    dispatch(fetchPublications());
+    dispatch(fetchPublicationsStats());
+  };
+
+  const handleReDeployError = (error: string) => {
+    toast.error(`Erro no re-deploy: ${error}`);
   };
 
   const getFilterLabel = (filterType: FilterType) => {
@@ -292,6 +325,7 @@ export const PublicationsView: React.FC = () => {
               onUpdateMetadata={handleUpdateMetadata}
               onDelete={handleDeletePublication}
               onDeleteMetadataOnly={handleDeleteMetadataOnly}
+              onReDeploy={handleReDeploy}
             />
           ))
         ) : publications.length === 0 ? (
@@ -317,6 +351,17 @@ export const PublicationsView: React.FC = () => {
           </EmptyState>
         )}
       </ContentCard>
+
+      {/* Modal de Re-Deploy */}
+      {reDeployModal.publication && (
+        <ReDeployModal
+          publication={reDeployModal.publication}
+          isOpen={reDeployModal.isOpen}
+          onClose={handleReDeployModalClose}
+          onSuccess={handleReDeploySuccess}
+          onError={handleReDeployError}
+        />
+      )}
     </ProtectedLayout>
   );
 };

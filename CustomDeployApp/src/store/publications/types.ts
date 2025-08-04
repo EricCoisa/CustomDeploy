@@ -7,6 +7,7 @@ export interface Publication {
   repository?: string;
   branch?: string;
   buildCommand?: string;
+  buildOutput?: string;
   targetPath: string;
   sizeMB: number;
   deployedAt?: string;
@@ -45,6 +46,7 @@ export interface UpdateMetadataRequest {
   repository?: string;
   branch?: string;
   buildCommand?: string;
+  buildOutput?: string;
 }
 
 export interface PublicationsState {
