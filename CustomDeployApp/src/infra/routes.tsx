@@ -3,6 +3,9 @@ import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import { LoginView } from '../views/login/LoginView';
 import { DashboardView } from '../views/dashboard';
 import { TestView } from '../views/test';
+import { IISView } from '../views/iis';
+import { PublicationsView } from '../views/publications';
+import { DeployView } from '../views/deploy';
 import { useAppSelector } from '../store';
 
 // Componente para proteger rotas que precisam de autenticação
@@ -65,6 +68,30 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <TestView />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/iis',
+    element: (
+      <ProtectedRoute>
+        <IISView />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/publications',
+    element: (
+      <ProtectedRoute>
+        <PublicationsView />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/deploy',
+    element: (
+      <ProtectedRoute>
+        <DeployView />
       </ProtectedRoute>
     ),
   },

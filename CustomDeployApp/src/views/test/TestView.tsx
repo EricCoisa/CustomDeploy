@@ -83,7 +83,7 @@ export const TestView: React.FC = () => {
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showFileBrowser, setShowFileBrowser] = useState(false);
-  const [fileBrowserType, setFileBrowserType] = useState<'file' | 'folder' | 'both'>('both');
+  const [fileBrowserType, setFileBrowserType] = useState<'file' | 'directory' | 'both'>('both');
   const [lastResult, setLastResult] = useState<string>('');
 
   // Handlers para testes
@@ -96,7 +96,7 @@ export const TestView: React.FC = () => {
     setLastResult(`Modal ${type} aberto`);
   };
 
-  const handleFileBrowserTest = (selectType: 'file' | 'folder' | 'both') => {
+  const handleFileBrowserTest = (selectType: 'file' | 'directory' | 'both') => {
     setFileBrowserType(selectType);
     setShowFileBrowser(true);
     setLastResult(`FileBrowser aberto (tipo: ${selectType})`);
@@ -174,7 +174,7 @@ export const TestView: React.FC = () => {
             <TestButton onClick={() => handleFileBrowserTest('file')}>
               Apenas Arquivos
             </TestButton>
-            <TestButton onClick={() => handleFileBrowserTest('folder')}>
+            <TestButton onClick={() => handleFileBrowserTest('directory')}>
               Apenas Pastas
             </TestButton>
           </TestGrid>
@@ -185,7 +185,7 @@ export const TestView: React.FC = () => {
   isOpen={showBrowser}
   onClose={() => setShowBrowser(false)}
   onSelect={(path) => console.log(path)}
-  selectType="both" // 'file' | 'folder' | 'both'
+  selectType="both" // 'file' | 'directory' | 'both'
   initialPath="C:/"
 />`}
           </CodeBlock>

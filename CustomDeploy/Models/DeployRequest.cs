@@ -27,4 +27,48 @@ namespace CustomDeploy.Models
         /// </summary>
         public string? ApplicationPath { get; set; }
     }
+
+    /// <summary>
+    /// Request para testar credenciais Git
+    /// </summary>
+    public class TestCredentialsRequest
+    {
+        /// <summary>
+        /// URL do repositório para teste (opcional)
+        /// Se não especificado, usa repositório público padrão
+        /// </summary>
+        public string? RepoUrl { get; set; }
+    }
+
+    /// <summary>
+    /// Request para validar repositório e branch
+    /// </summary>
+    public class ValidateRepositoryRequest
+    {
+        /// <summary>
+        /// URL do repositório Git
+        /// </summary>
+        public string RepoUrl { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Nome da branch para validação (opcional)
+        /// </summary>
+        public string? Branch { get; set; }
+    }
+
+    /// <summary>
+    /// Request para validar branch específica
+    /// </summary>
+    public class ValidateBranchRequest
+    {
+        /// <summary>
+        /// URL do repositório Git
+        /// </summary>
+        public string RepoUrl { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Nome da branch para validação
+        /// </summary>
+        public string Branch { get; set; } = string.Empty;
+    }
 }

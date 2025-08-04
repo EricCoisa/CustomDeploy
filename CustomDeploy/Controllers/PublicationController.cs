@@ -526,5 +526,43 @@ namespace CustomDeploy.Controllers
                 return StatusCode(500, new { message = "Erro interno do servidor", details = ex.Message });
             }
         }
+
+        /// <summary>
+        /// Testa o sistema de metadados e força a criação do arquivo deploys.json
+        /// </summary>
+        /// <returns>Informações sobre o teste do sistema</returns>
+        [HttpGet("test-metadata")]
+        public IActionResult TestMetadataSystem()
+        {
+            try
+            {
+                _logger.LogInformation("Endpoint de teste do sistema de metadados chamado");
+
+                var testResult = _deployService.TestMetadataSystem();
+
+                var response = new
+                {
+                    success = testResult.Success,
+                    message = testResult.Message,
+                    filePath = testResult.FilePath,
+                    fileExists = System.IO.File.Exists(testResult.FilePath),
+                    timestamp = DateTime.UtcNow
+                };
+
+                if (testResult.Success)
+                {
+                    return Ok(response);
+                }
+                else
+                {
+                    return StatusCode(500, response);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro no endpoint de teste do sistema de metadados");
+                return StatusCode(500, new { message = "Erro interno do servidor", details = ex.Message });
+            }
+        }
     }
 }

@@ -33,6 +33,16 @@ namespace CustomDeploy.Services
             {
                 Directory.CreateDirectory(_workingDirectory);
             }
+            
+            // Garantir que o diretório do arquivo de metadados existe
+            var deploysDirectory = Path.GetDirectoryName(_deploysJsonPath);
+            if (!string.IsNullOrEmpty(deploysDirectory) && !Directory.Exists(deploysDirectory))
+            {
+                Directory.CreateDirectory(deploysDirectory);
+                _logger.LogInformation("Diretório de metadados criado: {Directory}", deploysDirectory);
+            }
+            
+            _logger.LogInformation("DeployService inicializado. Arquivo de metadados: {DeploysJsonPath}", _deploysJsonPath);
         }
 
         public async Task<(bool Success, string Message, object? DeployDetails)> ExecuteDeployAsync(DeployRequest request)
@@ -416,10 +426,38 @@ namespace CustomDeploy.Services
 
         private (string fileName, string arguments) PrepareCommand(string command)
         {
+            // Detectar comandos "start cmd" e remover o "start" para aguardar execução completa
+            if (command.StartsWith("start cmd "))
+            {
+                _logger.LogInformation("Detectado comando 'start cmd', removendo 'start' para aguardar execução completa");
+                
+                // Remover "start " do início, mantendo "cmd ..."
+                command = command.Substring(6); // Remove "start "
+                
+                // Adicionar /c se não existir
+                if (!command.Contains("cmd /c"))
+                {
+                    if (command.StartsWith("cmd \""))
+                    {
+                        // Padrão: cmd "comando" -> cmd /c "comando"
+                        command = command.Replace("cmd \"", "cmd /c \"");
+                    }
+                    else
+                    {
+                        // Padrão: cmd comando -> cmd /c comando
+                        command = command.Replace("cmd ", "cmd /c ");
+                    }
+                    _logger.LogInformation("Adicionado /c ao comando cmd");
+                }
+                
+                _logger.LogInformation("Comando modificado para aguardar execução: {ModifiedCommand}", command);
+            }
+            
             // Para comandos que precisam do shell (npm, yarn, etc.)
             if (command.StartsWith("npm ") || 
                 command.StartsWith("yarn ") || 
                 command.StartsWith("npx ") ||
+                command.StartsWith("cmd ") ||
                 command.Contains("&&") ||
                 command.Contains("&") ||
                 command.Contains("|"))
@@ -671,14 +709,22 @@ namespace CustomDeploy.Services
                 if (!File.Exists(_deploysJsonPath))
                 {
                     _logger.LogInformation("Arquivo de metadados não existe, criando novo: {DeploysJsonPath}", _deploysJsonPath);
-                    return new List<DeployMetadata>();
+                    
+                    // Criar arquivo vazio imediatamente
+                    var emptyList = new List<DeployMetadata>();
+                    SaveAllDeployMetadata(emptyList);
+                    
+                    return emptyList;
                 }
 
                 var jsonContent = File.ReadAllText(_deploysJsonPath, Encoding.UTF8);
                 
                 if (string.IsNullOrWhiteSpace(jsonContent))
                 {
-                    return new List<DeployMetadata>();
+                    // Se arquivo existe mas está vazio, criar conteúdo inicial
+                    var emptyList = new List<DeployMetadata>();
+                    SaveAllDeployMetadata(emptyList);
+                    return emptyList;
                 }
 
                 var jsonOptions = new JsonSerializerOptions
@@ -699,16 +745,35 @@ namespace CustomDeploy.Services
 
         private void SaveAllDeployMetadata(List<DeployMetadata> deploysList)
         {
-            var jsonOptions = new JsonSerializerOptions
+            try
             {
-                WriteIndented = true,
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            };
+                var jsonOptions = new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                };
 
-            var jsonContent = JsonSerializer.Serialize(deploysList, jsonOptions);
-            File.WriteAllText(_deploysJsonPath, jsonContent, Encoding.UTF8);
-            
-            _logger.LogDebug("Arquivo de metadados atualizado com {Count} entradas", deploysList.Count);
+                var jsonContent = JsonSerializer.Serialize(deploysList, jsonOptions);
+                
+                // Garantir que o diretório existe antes de salvar
+                var directory = Path.GetDirectoryName(_deploysJsonPath);
+                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                    _logger.LogInformation("Diretório criado para arquivo de metadados: {Directory}", directory);
+                }
+                
+                File.WriteAllText(_deploysJsonPath, jsonContent, Encoding.UTF8);
+                
+                _logger.LogInformation("Arquivo de metadados salvo com sucesso: {Path} ({Count} entradas)", 
+                    _deploysJsonPath, deploysList.Count);
+                _logger.LogDebug("Conteúdo salvo: {JsonContent}", jsonContent);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao salvar arquivo de metadados: {Path}", _deploysJsonPath);
+                throw;
+            }
         }
 
         public List<DeployMetadata> GetAllDeployMetadata()
@@ -716,6 +781,47 @@ namespace CustomDeploy.Services
             lock (_deploysFileLock)
             {
                 return LoadAllDeployMetadata();
+            }
+        }
+
+        /// <summary>
+        /// Testa o sistema de metadados e força a criação do arquivo deploys.json se necessário
+        /// </summary>
+        /// <returns>Informações sobre o teste</returns>
+        public (bool Success, string Message, string FilePath) TestMetadataSystem()
+        {
+            try
+            {
+                _logger.LogInformation("Testando sistema de metadados...");
+                
+                lock (_deploysFileLock)
+                {
+                    // Forçar carregamento/criação do arquivo
+                    var deploysList = LoadAllDeployMetadata();
+                    
+                    // Verificar se arquivo foi criado
+                    var fileExists = File.Exists(_deploysJsonPath);
+                    var fileInfo = fileExists ? new FileInfo(_deploysJsonPath) : null;
+                    
+                    var message = $"Sistema de metadados testado. " +
+                                 $"Arquivo: {(fileExists ? "Existe" : "Não existe")}, " +
+                                 $"Caminho: {_deploysJsonPath}, " +
+                                 $"Entradas carregadas: {deploysList.Count}";
+                    
+                    if (fileExists && fileInfo != null)
+                    {
+                        message += $", Tamanho: {fileInfo.Length} bytes, Modificado: {fileInfo.LastWriteTime}";
+                    }
+                    
+                    _logger.LogInformation(message);
+                    return (true, message, _deploysJsonPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                var errorMessage = $"Erro ao testar sistema de metadados: {ex.Message}";
+                _logger.LogError(ex, errorMessage);
+                return (false, errorMessage, _deploysJsonPath);
             }
         }
 

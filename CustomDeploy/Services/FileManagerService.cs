@@ -395,5 +395,170 @@ namespace CustomDeploy.Services
                 _ => "Desconhecido"
             };
         }
+
+        public async Task<bool> CreateDirectoryAsync(string path)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    _logger.LogWarning("Tentativa de criar pasta com caminho vazio");
+                    return false;
+                }
+
+                if (IsPathBlocked(path))
+                {
+                    _logger.LogWarning("Tentativa de criar pasta em caminho bloqueado: {Path}", path);
+                    return false;
+                }
+
+                if (Directory.Exists(path))
+                {
+                    _logger.LogWarning("Pasta já existe: {Path}", path);
+                    return false;
+                }
+
+                await Task.Run(() => Directory.CreateDirectory(path));
+                _logger.LogInformation("Pasta criada com sucesso: {Path}", path);
+                return true;
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogError(ex, "Acesso negado ao criar pasta: {Path}", path);
+                return false;
+            }
+            catch (DirectoryNotFoundException ex)
+            {
+                _logger.LogError(ex, "Diretório pai não encontrado ao criar pasta: {Path}", path);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao criar pasta: {Path}", path);
+                return false;
+            }
+        }
+
+        public async Task<bool> RenameDirectoryAsync(string oldPath, string newName)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(oldPath) || string.IsNullOrWhiteSpace(newName))
+                {
+                    _logger.LogWarning("Tentativa de renomear pasta com parâmetros inválidos");
+                    return false;
+                }
+
+                if (!Directory.Exists(oldPath))
+                {
+                    _logger.LogWarning("Pasta não encontrada para renomear: {Path}", oldPath);
+                    return false;
+                }
+
+                if (IsPathBlocked(oldPath))
+                {
+                    _logger.LogWarning("Tentativa de renomear pasta em caminho bloqueado: {Path}", oldPath);
+                    return false;
+                }
+
+                var parentPath = Path.GetDirectoryName(oldPath);
+                if (string.IsNullOrEmpty(parentPath))
+                {
+                    _logger.LogWarning("Não é possível determinar o diretório pai de: {Path}", oldPath);
+                    return false;
+                }
+
+                var newPath = Path.Combine(parentPath, newName);
+
+                if (IsPathBlocked(newPath))
+                {
+                    _logger.LogWarning("Tentativa de renomear pasta para caminho bloqueado: {NewPath}", newPath);
+                    return false;
+                }
+
+                if (Directory.Exists(newPath))
+                {
+                    _logger.LogWarning("Pasta de destino já existe: {NewPath}", newPath);
+                    return false;
+                }
+
+                await Task.Run(() => Directory.Move(oldPath, newPath));
+                _logger.LogInformation("Pasta renomeada com sucesso: {OldPath} -> {NewPath}", oldPath, newPath);
+                return true;
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogError(ex, "Acesso negado ao renomear pasta: {Path}", oldPath);
+                return false;
+            }
+            catch (DirectoryNotFoundException ex)
+            {
+                _logger.LogError(ex, "Pasta não encontrada ao renomear: {Path}", oldPath);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao renomear pasta: {Path}", oldPath);
+                return false;
+            }
+        }
+
+        public async Task<bool> DeleteDirectoryAsync(string path, bool recursive = false)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    _logger.LogWarning("Tentativa de deletar pasta com caminho vazio");
+                    return false;
+                }
+
+                if (!Directory.Exists(path))
+                {
+                    _logger.LogWarning("Pasta não encontrada para deletar: {Path}", path);
+                    return false;
+                }
+
+                if (IsPathBlocked(path))
+                {
+                    _logger.LogWarning("Tentativa de deletar pasta em caminho bloqueado: {Path}", path);
+                    return false;
+                }
+
+                // Verificações de segurança adicionais para pastas críticas
+                var criticalPaths = new[] { "C:\\", "C:\\Windows", "C:\\Program Files", "C:\\Program Files (x86)", 
+                                          "C:\\Users", "C:\\ProgramData" };
+                
+                if (criticalPaths.Any(cp => string.Equals(path.TrimEnd('\\'), cp, StringComparison.OrdinalIgnoreCase)))
+                {
+                    _logger.LogWarning("Tentativa de deletar pasta crítica do sistema: {Path}", path);
+                    return false;
+                }
+
+                await Task.Run(() => Directory.Delete(path, recursive));
+                _logger.LogInformation("Pasta deletada com sucesso: {Path}, Recursive: {Recursive}", path, recursive);
+                return true;
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogError(ex, "Acesso negado ao deletar pasta: {Path}", path);
+                return false;
+            }
+            catch (DirectoryNotFoundException ex)
+            {
+                _logger.LogError(ex, "Pasta não encontrada ao deletar: {Path}", path);
+                return false;
+            }
+            catch (IOException ex)
+            {
+                _logger.LogError(ex, "Erro de E/S ao deletar pasta (pasta pode não estar vazia): {Path}", path);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao deletar pasta: {Path}", path);
+                return false;
+            }
+        }
     }
 }

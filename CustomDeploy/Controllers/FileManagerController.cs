@@ -322,6 +322,210 @@ namespace CustomDeploy.Controllers
             }
         }
 
+        /// <summary>
+        /// Cria uma nova pasta
+        /// </summary>
+        /// <param name="request">Dados para criação da pasta</param>
+        /// <returns>Resultado da operação</returns>
+        [HttpPost("create-directory")]
+        public async Task<IActionResult> CreateDirectory([FromBody] CreateDirectoryRequest request)
+        {
+            try
+            {
+                if (request == null || string.IsNullOrWhiteSpace(request.Path))
+                {
+                    return BadRequest(new
+                    {
+                        message = "Caminho da pasta é obrigatório",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+
+                _logger.LogInformation("Solicitação de criação de pasta: {Path}", request.Path);
+
+                // Verifica privilégios de administrador
+                var adminStatus = _administratorService.GetPrivilegeStatus();
+                if (!adminStatus.IsAdmin)
+                {
+                    return StatusCode(403, new
+                    {
+                        message = "Acesso negado: privilégios de administrador são necessários",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+
+                var success = await _fileManagerService.CreateDirectoryAsync(request.Path);
+
+                if (success)
+                {
+                    return Ok(new
+                    {
+                        message = "Pasta criada com sucesso",
+                        path = request.Path,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return BadRequest(new
+                    {
+                        message = "Falha ao criar pasta. Verifique se o caminho é válido e se a pasta não existe",
+                        path = request.Path,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao criar pasta: {Path}", request?.Path);
+                
+                return StatusCode(500, new
+                {
+                    message = "Erro interno do servidor",
+                    error = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+        }
+
+        /// <summary>
+        /// Renomeia uma pasta existente
+        /// </summary>
+        /// <param name="request">Dados para renomeação da pasta</param>
+        /// <returns>Resultado da operação</returns>
+        [HttpPut("rename-directory")]
+        public async Task<IActionResult> RenameDirectory([FromBody] RenameDirectoryRequest request)
+        {
+            try
+            {
+                if (request == null || string.IsNullOrWhiteSpace(request.OldPath) || string.IsNullOrWhiteSpace(request.NewName))
+                {
+                    return BadRequest(new
+                    {
+                        message = "Caminho atual e novo nome são obrigatórios",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+
+                _logger.LogInformation("Solicitação de renomeação de pasta: {OldPath} -> {NewName}", request.OldPath, request.NewName);
+
+                // Verifica privilégios de administrador
+                var adminStatus = _administratorService.GetPrivilegeStatus();
+                if (!adminStatus.IsAdmin)
+                {
+                    return StatusCode(403, new
+                    {
+                        message = "Acesso negado: privilégios de administrador são necessários",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+
+                var success = await _fileManagerService.RenameDirectoryAsync(request.OldPath, request.NewName);
+
+                if (success)
+                {
+                    var parentPath = Path.GetDirectoryName(request.OldPath);
+                    var newPath = Path.Combine(parentPath!, request.NewName);
+                    
+                    return Ok(new
+                    {
+                        message = "Pasta renomeada com sucesso",
+                        oldPath = request.OldPath,
+                        newPath = newPath,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return BadRequest(new
+                    {
+                        message = "Falha ao renomear pasta. Verifique se a pasta existe e o novo nome é válido",
+                        oldPath = request.OldPath,
+                        newName = request.NewName,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao renomear pasta: {OldPath} -> {NewName}", request?.OldPath, request?.NewName);
+                
+                return StatusCode(500, new
+                {
+                    message = "Erro interno do servidor",
+                    error = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+        }
+
+        /// <summary>
+        /// Deleta uma pasta
+        /// </summary>
+        /// <param name="request">Dados para deleção da pasta</param>
+        /// <returns>Resultado da operação</returns>
+        [HttpDelete("delete-directory")]
+        public async Task<IActionResult> DeleteDirectory([FromBody] DeleteDirectoryRequest request)
+        {
+            try
+            {
+                if (request == null || string.IsNullOrWhiteSpace(request.Path))
+                {
+                    return BadRequest(new
+                    {
+                        message = "Caminho da pasta é obrigatório",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+
+                _logger.LogInformation("Solicitação de deleção de pasta: {Path}, Recursive: {Recursive}", request.Path, request.Recursive);
+
+                // Verifica privilégios de administrador
+                var adminStatus = _administratorService.GetPrivilegeStatus();
+                if (!adminStatus.IsAdmin)
+                {
+                    return StatusCode(403, new
+                    {
+                        message = "Acesso negado: privilégios de administrador são necessários",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+
+                var success = await _fileManagerService.DeleteDirectoryAsync(request.Path, request.Recursive);
+
+                if (success)
+                {
+                    return Ok(new
+                    {
+                        message = "Pasta deletada com sucesso",
+                        path = request.Path,
+                        recursive = request.Recursive,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return BadRequest(new
+                    {
+                        message = "Falha ao deletar pasta. Verifique se a pasta existe e está acessível",
+                        path = request.Path,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao deletar pasta: {Path}", request?.Path);
+                
+                return StatusCode(500, new
+                {
+                    message = "Erro interno do servidor",
+                    error = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+        }
+
         private string GetValidationMessage(bool isValid, bool isBlocked)
         {
             if (!isValid)

@@ -1,10 +1,16 @@
 import { configureStore } from '@reduxjs/toolkit';
 import loginReducer from './login/reducers';
+import iisReducer from './iis';
+import publicationsReducer from './publications';
+import deployReducer from './deploy';
 
 // Configurar a store
 export const store = configureStore({
   reducer: {
     login: loginReducer,
+    iis: iisReducer,
+    publications: publicationsReducer,
+    deploy: deployReducer,
     // Adicionar outros reducers aqui conforme necessário
   },
   devTools: import.meta.env.DEV, // Habilitar Redux DevTools apenas em desenvolvimento

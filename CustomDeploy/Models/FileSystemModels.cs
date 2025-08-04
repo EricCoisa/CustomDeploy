@@ -127,4 +127,47 @@ namespace CustomDeploy.Models
         /// </summary>
         public bool Ascending { get; set; } = true;
     }
+
+    /// <summary>
+    /// Request para criação de diretório
+    /// </summary>
+    public class CreateDirectoryRequest
+    {
+        /// <summary>
+        /// Caminho completo da nova pasta
+        /// </summary>
+        public string Path { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Request para renomeação de diretório
+    /// </summary>
+    public class RenameDirectoryRequest
+    {
+        /// <summary>
+        /// Caminho atual da pasta
+        /// </summary>
+        public string OldPath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Novo nome da pasta
+        /// </summary>
+        public string NewName { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Request para deleção de diretório
+    /// </summary>
+    public class DeleteDirectoryRequest
+    {
+        /// <summary>
+        /// Caminho da pasta a ser deletada
+        /// </summary>
+        public string Path { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Se deve deletar recursivamente (incluindo conteúdo)
+        /// </summary>
+        public bool Recursive { get; set; } = false;
+    }
 }

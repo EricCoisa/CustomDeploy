@@ -1,0 +1,96 @@
+### Testes para Gerenciamento de Diretórios
+### Configuração de variáveis
+@baseUrl = https://localhost:7042
+@token = {{login.response.body.token}}
+
+### 1. Login para obter token
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin123"
+}
+
+> {%
+client.global.set("token", response.body.token);
+%}
+
+### 2. Criar uma nova pasta
+POST {{baseUrl}}/FileManager/create-directory
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "path": "C:\\inetpub\\wwwroot\\TestFolder"
+}
+
+### 3. Criar uma subpasta
+POST {{baseUrl}}/FileManager/create-directory
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "path": "C:\\inetpub\\wwwroot\\TestFolder\\SubFolder"
+}
+
+### 4. Renomear a pasta criada
+PUT {{baseUrl}}/FileManager/rename-directory
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "oldPath": "C:\\inetpub\\wwwroot\\TestFolder",
+  "newName": "RenamedTestFolder"
+}
+
+### 5. Tentar criar pasta em local bloqueado (deve falhar)
+POST {{baseUrl}}/FileManager/create-directory
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "path": "C:\\Windows\\System32\\TestFolder"
+}
+
+### 6. Listar conteúdo para verificar se a pasta foi criada
+GET {{baseUrl}}/FileManager?path=C%3A%5Cinetpub%5Cwwwroot
+Authorization: Bearer {{token}}
+
+### 7. Deletar a subpasta
+DELETE {{baseUrl}}/FileManager/delete-directory
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "path": "C:\\inetpub\\wwwroot\\RenamedTestFolder\\SubFolder",
+  "recursive": false
+}
+
+### 8. Deletar a pasta principal (recursivo)
+DELETE {{baseUrl}}/FileManager/delete-directory
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "path": "C:\\inetpub\\wwwroot\\RenamedTestFolder",
+  "recursive": true
+}
+
+### 9. Tentar deletar pasta crítica (deve falhar)
+DELETE {{baseUrl}}/FileManager/delete-directory
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "path": "C:\\Windows",
+  "recursive": false
+}
+
+### 10. Validar caminho antes de criar
+GET {{baseUrl}}/FileManager/validate?path=C%3A%5Cinetpub%5Cwwwroot%5CNewTestFolder
+Authorization: Bearer {{token}}
+
+### 11. Verificar informações do sistema
+GET {{baseUrl}}/FileManager/system-info
+Authorization: Bearer {{token}}

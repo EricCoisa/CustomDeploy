@@ -2181,6 +2181,461 @@ try {{
 
         #endregion
 
+        #region Site Management (Start/Stop)
+
+        /// <summary>
+        /// Inicia um site do IIS
+        /// </summary>
+        /// <param name="siteName">Nome do site a ser iniciado</param>
+        /// <returns>Resultado da operação</returns>
+        public async Task<IISOperationResult> StartSiteAsync(string siteName)
+        {
+            _logger.LogInformation("Iniciando site IIS: {SiteName}", siteName);
+
+            try
+            {
+                using var serverManager = new ServerManager();
+                
+                var site = serverManager.Sites.FirstOrDefault(s => s.Name.Equals(siteName, StringComparison.OrdinalIgnoreCase));
+                
+                if (site == null)
+                {
+                    return new IISOperationResult
+                    {
+                        Success = false,
+                        Message = $"Site '{siteName}' não encontrado",
+                        Errors = { "O site especificado não existe no IIS" }
+                    };
+                }
+
+                if (site.State == ObjectState.Started)
+                {
+                    return new IISOperationResult
+                    {
+                        Success = true,
+                        Message = $"Site '{siteName}' já está em execução",
+                        Data = new { siteName, currentState = "Started", action = "None" }
+                    };
+                }
+
+                site.Start();
+                serverManager.CommitChanges();
+
+                // Aguardar um momento para o site inicializar
+                await Task.Delay(1000);
+
+                _logger.LogInformation("Site IIS '{SiteName}' iniciado com sucesso", siteName);
+
+                return new IISOperationResult
+                {
+                    Success = true,
+                    Message = $"Site '{siteName}' iniciado com sucesso",
+                    Data = new { siteName, previousState = "Stopped", currentState = "Started", action = "Start" }
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao iniciar site IIS: {SiteName}", siteName);
+                return new IISOperationResult
+                {
+                    Success = false,
+                    Message = $"Erro ao iniciar site '{siteName}'",
+                    Errors = { ex.Message }
+                };
+            }
+        }
+
+        /// <summary>
+        /// Para um site do IIS
+        /// </summary>
+        /// <param name="siteName">Nome do site a ser parado</param>
+        /// <returns>Resultado da operação</returns>
+        public async Task<IISOperationResult> StopSiteAsync(string siteName)
+        {
+            _logger.LogInformation("Parando site IIS: {SiteName}", siteName);
+
+            try
+            {
+                using var serverManager = new ServerManager();
+                
+                var site = serverManager.Sites.FirstOrDefault(s => s.Name.Equals(siteName, StringComparison.OrdinalIgnoreCase));
+                
+                if (site == null)
+                {
+                    return new IISOperationResult
+                    {
+                        Success = false,
+                        Message = $"Site '{siteName}' não encontrado",
+                        Errors = { "O site especificado não existe no IIS" }
+                    };
+                }
+
+                if (site.State == ObjectState.Stopped)
+                {
+                    return new IISOperationResult
+                    {
+                        Success = true,
+                        Message = $"Site '{siteName}' já está parado",
+                        Data = new { siteName, currentState = "Stopped", action = "None" }
+                    };
+                }
+
+                site.Stop();
+                serverManager.CommitChanges();
+
+                // Aguardar um momento para o site parar
+                await Task.Delay(1000);
+
+                _logger.LogInformation("Site IIS '{SiteName}' parado com sucesso", siteName);
+
+                return new IISOperationResult
+                {
+                    Success = true,
+                    Message = $"Site '{siteName}' parado com sucesso",
+                    Data = new { siteName, previousState = "Started", currentState = "Stopped", action = "Stop" }
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao parar site IIS: {SiteName}", siteName);
+                return new IISOperationResult
+                {
+                    Success = false,
+                    Message = $"Erro ao parar site '{siteName}'",
+                    Errors = { ex.Message }
+                };
+            }
+        }
+
+        #endregion
+
+        #region Application Management (Start/Stop)
+
+        /// <summary>
+        /// Inicia uma aplicação específica dentro de um site
+        /// </summary>
+        /// <param name="siteName">Nome do site</param>
+        /// <param name="appPath">Caminho da aplicação</param>
+        /// <returns>Resultado da operação</returns>
+        public async Task<IISOperationResult> StartApplicationAsync(string siteName, string appPath)
+        {
+            _logger.LogInformation("Iniciando aplicação: {SiteName}/{AppPath}", siteName, appPath);
+
+            try
+            {
+                using var serverManager = new ServerManager();
+                
+                var site = serverManager.Sites.FirstOrDefault(s => s.Name.Equals(siteName, StringComparison.OrdinalIgnoreCase));
+                
+                if (site == null)
+                {
+                    return new IISOperationResult
+                    {
+                        Success = false,
+                        Message = $"Site '{siteName}' não encontrado",
+                        Errors = { "O site especificado não existe no IIS" }
+                    };
+                }
+
+                var application = site.Applications.FirstOrDefault(app => app.Path.Equals(appPath, StringComparison.OrdinalIgnoreCase));
+                
+                if (application == null)
+                {
+                    return new IISOperationResult
+                    {
+                        Success = false,
+                        Message = $"Aplicação '{appPath}' não encontrada no site '{siteName}'",
+                        Errors = { "A aplicação especificada não existe no site" }
+                    };
+                }
+
+                // Verificar o Application Pool da aplicação
+                var appPoolName = application.ApplicationPoolName;
+                var appPool = serverManager.ApplicationPools.FirstOrDefault(ap => ap.Name.Equals(appPoolName, StringComparison.OrdinalIgnoreCase));
+                
+                if (appPool == null)
+                {
+                    return new IISOperationResult
+                    {
+                        Success = false,
+                        Message = $"Application Pool '{appPoolName}' da aplicação não encontrado",
+                        Errors = { "O Application Pool associado à aplicação não existe" }
+                    };
+                }
+
+                if (appPool.State == ObjectState.Stopped)
+                {
+                    appPool.Start();
+                    _logger.LogInformation("Application Pool '{AppPoolName}' iniciado para a aplicação", appPoolName);
+                }
+
+                // Verificar se o site também está rodando
+                if (site.State == ObjectState.Stopped)
+                {
+                    site.Start();
+                    _logger.LogInformation("Site '{SiteName}' iniciado junto com a aplicação", siteName);
+                }
+
+                serverManager.CommitChanges();
+
+                // Aguardar um momento para inicialização
+                await Task.Delay(1500);
+
+                _logger.LogInformation("Aplicação '{AppPath}' no site '{SiteName}' iniciada com sucesso", appPath, siteName);
+
+                return new IISOperationResult
+                {
+                    Success = true,
+                    Message = $"Aplicação '{appPath}' no site '{siteName}' iniciada com sucesso",
+                    Data = new { 
+                        siteName, 
+                        appPath, 
+                        appPoolName, 
+                        siteState = "Started", 
+                        appPoolState = "Started",
+                        action = "Start"
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao iniciar aplicação: {SiteName}/{AppPath}", siteName, appPath);
+                return new IISOperationResult
+                {
+                    Success = false,
+                    Message = $"Erro ao iniciar aplicação '{appPath}' no site '{siteName}'",
+                    Errors = { ex.Message }
+                };
+            }
+        }
+
+        /// <summary>
+        /// Para uma aplicação específica dentro de um site
+        /// </summary>
+        /// <param name="siteName">Nome do site</param>
+        /// <param name="appPath">Caminho da aplicação</param>
+        /// <returns>Resultado da operação</returns>
+        public async Task<IISOperationResult> StopApplicationAsync(string siteName, string appPath)
+        {
+            _logger.LogInformation("Parando aplicação: {SiteName}/{AppPath}", siteName, appPath);
+
+            try
+            {
+                using var serverManager = new ServerManager();
+                
+                var site = serverManager.Sites.FirstOrDefault(s => s.Name.Equals(siteName, StringComparison.OrdinalIgnoreCase));
+                
+                if (site == null)
+                {
+                    return new IISOperationResult
+                    {
+                        Success = false,
+                        Message = $"Site '{siteName}' não encontrado",
+                        Errors = { "O site especificado não existe no IIS" }
+                    };
+                }
+
+                var application = site.Applications.FirstOrDefault(app => app.Path.Equals(appPath, StringComparison.OrdinalIgnoreCase));
+                
+                if (application == null)
+                {
+                    return new IISOperationResult
+                    {
+                        Success = false,
+                        Message = $"Aplicação '{appPath}' não encontrada no site '{siteName}'",
+                        Errors = { "A aplicação especificada não existe no site" }
+                    };
+                }
+
+                // Verificar o Application Pool da aplicação
+                var appPoolName = application.ApplicationPoolName;
+                var appPool = serverManager.ApplicationPools.FirstOrDefault(ap => ap.Name.Equals(appPoolName, StringComparison.OrdinalIgnoreCase));
+                
+                if (appPool == null)
+                {
+                    return new IISOperationResult
+                    {
+                        Success = false,
+                        Message = $"Application Pool '{appPoolName}' da aplicação não encontrado",
+                        Errors = { "O Application Pool associado à aplicação não existe" }
+                    };
+                }
+
+                if (appPool.State == ObjectState.Stopped)
+                {
+                    return new IISOperationResult
+                    {
+                        Success = true,
+                        Message = $"Application Pool '{appPoolName}' da aplicação '{appPath}' já está parado",
+                        Data = new { siteName, appPath, appPoolName, currentState = "Stopped", action = "None" }
+                    };
+                }
+
+                // Para o Application Pool da aplicação
+                appPool.Stop();
+                serverManager.CommitChanges();
+
+                // Aguardar um momento para parar
+                await Task.Delay(1500);
+
+                _logger.LogInformation("Aplicação '{AppPath}' no site '{SiteName}' parada com sucesso", appPath, siteName);
+
+                return new IISOperationResult
+                {
+                    Success = true,
+                    Message = $"Aplicação '{appPath}' no site '{siteName}' parada com sucesso",
+                    Data = new { 
+                        siteName, 
+                        appPath, 
+                        appPoolName, 
+                        previousState = "Started", 
+                        currentState = "Stopped",
+                        action = "Stop"
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao parar aplicação: {SiteName}/{AppPath}", siteName, appPath);
+                return new IISOperationResult
+                {
+                    Success = false,
+                    Message = $"Erro ao parar aplicação '{appPath}' no site '{siteName}'",
+                    Errors = { ex.Message }
+                };
+            }
+        }
+
+        #endregion
+
+        #region Application Pool Management (Start/Stop)
+
+        /// <summary>
+        /// Inicia um Application Pool
+        /// </summary>
+        /// <param name="poolName">Nome do Application Pool</param>
+        /// <returns>Resultado da operação</returns>
+        public async Task<IISOperationResult> StartAppPoolAsync(string poolName)
+        {
+            _logger.LogInformation("Iniciando Application Pool: {PoolName}", poolName);
+
+            try
+            {
+                using var serverManager = new ServerManager();
+                
+                var appPool = serverManager.ApplicationPools.FirstOrDefault(ap => ap.Name.Equals(poolName, StringComparison.OrdinalIgnoreCase));
+                
+                if (appPool == null)
+                {
+                    return new IISOperationResult
+                    {
+                        Success = false,
+                        Message = $"Application Pool '{poolName}' não encontrado",
+                        Errors = { "O Application Pool especificado não existe no IIS" }
+                    };
+                }
+
+                if (appPool.State == ObjectState.Started)
+                {
+                    return new IISOperationResult
+                    {
+                        Success = true,
+                        Message = $"Application Pool '{poolName}' já está em execução",
+                        Data = new { poolName, currentState = "Started", action = "None" }
+                    };
+                }
+
+                appPool.Start();
+                serverManager.CommitChanges();
+
+                // Aguardar um momento para o pool inicializar
+                await Task.Delay(1000);
+
+                _logger.LogInformation("Application Pool '{PoolName}' iniciado com sucesso", poolName);
+
+                return new IISOperationResult
+                {
+                    Success = true,
+                    Message = $"Application Pool '{poolName}' iniciado com sucesso",
+                    Data = new { poolName, previousState = "Stopped", currentState = "Started", action = "Start" }
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao iniciar Application Pool: {PoolName}", poolName);
+                return new IISOperationResult
+                {
+                    Success = false,
+                    Message = $"Erro ao iniciar Application Pool '{poolName}'",
+                    Errors = { ex.Message }
+                };
+            }
+        }
+
+        /// <summary>
+        /// Para um Application Pool
+        /// </summary>
+        /// <param name="poolName">Nome do Application Pool</param>
+        /// <returns>Resultado da operação</returns>
+        public async Task<IISOperationResult> StopAppPoolAsync(string poolName)
+        {
+            _logger.LogInformation("Parando Application Pool: {PoolName}", poolName);
+
+            try
+            {
+                using var serverManager = new ServerManager();
+                
+                var appPool = serverManager.ApplicationPools.FirstOrDefault(ap => ap.Name.Equals(poolName, StringComparison.OrdinalIgnoreCase));
+                
+                if (appPool == null)
+                {
+                    return new IISOperationResult
+                    {
+                        Success = false,
+                        Message = $"Application Pool '{poolName}' não encontrado",
+                        Errors = { "O Application Pool especificado não existe no IIS" }
+                    };
+                }
+
+                if (appPool.State == ObjectState.Stopped)
+                {
+                    return new IISOperationResult
+                    {
+                        Success = true,
+                        Message = $"Application Pool '{poolName}' já está parado",
+                        Data = new { poolName, currentState = "Stopped", action = "None" }
+                    };
+                }
+
+                appPool.Stop();
+                serverManager.CommitChanges();
+
+                // Aguardar um momento para o pool parar
+                await Task.Delay(1000);
+
+                _logger.LogInformation("Application Pool '{PoolName}' parado com sucesso", poolName);
+
+                return new IISOperationResult
+                {
+                    Success = true,
+                    Message = $"Application Pool '{poolName}' parado com sucesso",
+                    Data = new { poolName, previousState = "Started", currentState = "Stopped", action = "Stop" }
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao parar Application Pool: {PoolName}", poolName);
+                return new IISOperationResult
+                {
+                    Success = false,
+                    Message = $"Erro ao parar Application Pool '{poolName}'",
+                    Errors = { ex.Message }
+                };
+            }
+        }
+
+        #endregion
+
         #region Helper Methods
 
         /// <summary>

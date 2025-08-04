@@ -2,12 +2,15 @@ import styled from 'styled-components';
 
 // Styled Components para LoginView
 export const LoginContainer = styled.div`
+  width: 100%;
+  height: 100vh;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 1rem;
+  box-sizing: border-box;
 `;
 
 export const LoginCard = styled.div`
@@ -17,6 +20,7 @@ export const LoginCard = styled.div`
   padding: 2rem;
   width: 100%;
   max-width: 450px;
+  box-sizing: border-box;
 `;
 
 export const Logo = styled.div`

@@ -1,10 +1,12 @@
 import { useEffect } from 'react';
 import { Provider } from 'react-redux';
+import { ToastContainer } from 'react-toastify';
 import { store } from './store';
 import { AppRoutes } from './infra/routes';
 import { tokenMonitor } from './services/tokenMonitor';
 import { logoutUser } from './store/login/actions';
 import './App.css';
+import 'react-toastify/dist/ReactToastify.css';
 
 function App() {
   useEffect(() => {
@@ -25,6 +27,18 @@ function App() {
   return (
     <Provider store={store}>
       <AppRoutes />
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
     </Provider>
   );
 }

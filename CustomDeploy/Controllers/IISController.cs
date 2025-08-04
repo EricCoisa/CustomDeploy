@@ -6,7 +6,7 @@ using CustomDeploy.Services;
 namespace CustomDeploy.Controllers
 {
     [ApiController]
-    [Route("api/iis")]
+    [Route("iis")]
     [Authorize]
     public class IISController : ControllerBase
     {
@@ -727,6 +727,310 @@ namespace CustomDeploy.Controllers
             {
                 _logger.LogError(ex, "Erro ao verificar aplicação: {SiteName}/{AppPath}", siteName, appPath);
                 return StatusCode(500, new { message = "Erro interno", details = ex.Message });
+            }
+        }
+
+        #endregion
+
+        #region Site Management (Start/Stop)
+
+        /// <summary>
+        /// Inicia um site do IIS
+        /// </summary>
+        /// <param name="siteName">Nome do site a ser iniciado</param>
+        /// <returns>Resultado da operação</returns>
+        [HttpPost("sites/{siteName}/start")]
+        public async Task<IActionResult> StartSite(string siteName)
+        {
+            try
+            {
+                _logger.LogInformation("Solicitação para iniciar site IIS: {SiteName}", siteName);
+
+                var result = await _iisManagementService.StartSiteAsync(siteName);
+
+                if (result.Success)
+                {
+                    return Ok(new
+                    {
+                        message = result.Message,
+                        siteName = siteName,
+                        status = "Started",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return BadRequest(new
+                    {
+                        message = result.Message,
+                        errors = result.Errors,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao iniciar site IIS: {SiteName}", siteName);
+                return StatusCode(500, new 
+                { 
+                    message = "Erro interno do servidor ao iniciar site", 
+                    details = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+        }
+
+        /// <summary>
+        /// Para um site do IIS
+        /// </summary>
+        /// <param name="siteName">Nome do site a ser parado</param>
+        /// <returns>Resultado da operação</returns>
+        [HttpPost("sites/{siteName}/stop")]
+        public async Task<IActionResult> StopSite(string siteName)
+        {
+            try
+            {
+                _logger.LogInformation("Solicitação para parar site IIS: {SiteName}", siteName);
+
+                var result = await _iisManagementService.StopSiteAsync(siteName);
+
+                if (result.Success)
+                {
+                    return Ok(new
+                    {
+                        message = result.Message,
+                        siteName = siteName,
+                        status = "Stopped",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return BadRequest(new
+                    {
+                        message = result.Message,
+                        errors = result.Errors,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao parar site IIS: {SiteName}", siteName);
+                return StatusCode(500, new 
+                { 
+                    message = "Erro interno do servidor ao parar site", 
+                    details = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+        }
+
+        #endregion
+
+        #region Application Management (Start/Stop)
+
+        /// <summary>
+        /// Inicia uma aplicação em um site específico
+        /// </summary>
+        /// <param name="siteName">Nome do site</param>
+        /// <param name="appPath">Caminho da aplicação</param>
+        /// <returns>Resultado da operação</returns>
+        [HttpPost("sites/{siteName}/applications/start/{*appPath}")]
+        public async Task<IActionResult> StartApplication(string siteName, string appPath)
+        {
+            try
+            {
+                // Garantir que o appPath comece com /
+                if (!appPath.StartsWith("/"))
+                {
+                    appPath = "/" + appPath;
+                }
+
+                _logger.LogInformation("Solicitação para iniciar aplicação: {SiteName}/{AppPath}", siteName, appPath);
+
+                var result = await _iisManagementService.StartApplicationAsync(siteName, appPath);
+
+                if (result.Success)
+                {
+                    return Ok(new
+                    {
+                        message = result.Message,
+                        siteName = siteName,
+                        appPath = appPath,
+                        status = "Started",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return BadRequest(new
+                    {
+                        message = result.Message,
+                        errors = result.Errors,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao iniciar aplicação: {SiteName}/{AppPath}", siteName, appPath);
+                return StatusCode(500, new 
+                { 
+                    message = "Erro interno do servidor ao iniciar aplicação", 
+                    details = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+        }
+
+        /// <summary>
+        /// Para uma aplicação em um site específico
+        /// </summary>
+        /// <param name="siteName">Nome do site</param>
+        /// <param name="appPath">Caminho da aplicação</param>
+        /// <returns>Resultado da operação</returns>
+        [HttpPost("sites/{siteName}/applications/stop/{*appPath}")]
+        public async Task<IActionResult> StopApplication(string siteName, string appPath)
+        {
+            try
+            {
+                // Garantir que o appPath comece com /
+                if (!appPath.StartsWith("/"))
+                {
+                    appPath = "/" + appPath;
+                }
+
+                _logger.LogInformation("Solicitação para parar aplicação: {SiteName}/{AppPath}", siteName, appPath);
+
+                var result = await _iisManagementService.StopApplicationAsync(siteName, appPath);
+
+                if (result.Success)
+                {
+                    return Ok(new
+                    {
+                        message = result.Message,
+                        siteName = siteName,
+                        appPath = appPath,
+                        status = "Stopped",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return BadRequest(new
+                    {
+                        message = result.Message,
+                        errors = result.Errors,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao parar aplicação: {SiteName}/{AppPath}", siteName, appPath);
+                return StatusCode(500, new 
+                { 
+                    message = "Erro interno do servidor ao parar aplicação", 
+                    details = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+        }
+
+        #endregion
+
+        #region Application Pool Management (Start/Stop)
+
+        /// <summary>
+        /// Inicia um Application Pool
+        /// </summary>
+        /// <param name="poolName">Nome do Application Pool</param>
+        /// <returns>Resultado da operação</returns>
+        [HttpPost("app-pools/{poolName}/start")]
+        public async Task<IActionResult> StartAppPool(string poolName)
+        {
+            try
+            {
+                _logger.LogInformation("Solicitação para iniciar Application Pool: {PoolName}", poolName);
+
+                var result = await _iisManagementService.StartAppPoolAsync(poolName);
+
+                if (result.Success)
+                {
+                    return Ok(new
+                    {
+                        message = result.Message,
+                        poolName = poolName,
+                        status = "Started",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return BadRequest(new
+                    {
+                        message = result.Message,
+                        errors = result.Errors,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao iniciar Application Pool: {PoolName}", poolName);
+                return StatusCode(500, new 
+                { 
+                    message = "Erro interno do servidor ao iniciar Application Pool", 
+                    details = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+        }
+
+        /// <summary>
+        /// Para um Application Pool
+        /// </summary>
+        /// <param name="poolName">Nome do Application Pool</param>
+        /// <returns>Resultado da operação</returns>
+        [HttpPost("app-pools/{poolName}/stop")]
+        public async Task<IActionResult> StopAppPool(string poolName)
+        {
+            try
+            {
+                _logger.LogInformation("Solicitação para parar Application Pool: {PoolName}", poolName);
+
+                var result = await _iisManagementService.StopAppPoolAsync(poolName);
+
+                if (result.Success)
+                {
+                    return Ok(new
+                    {
+                        message = result.Message,
+                        poolName = poolName,
+                        status = "Stopped",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return BadRequest(new
+                    {
+                        message = result.Message,
+                        errors = result.Errors,
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao parar Application Pool: {PoolName}", poolName);
+                return StatusCode(500, new 
+                { 
+                    message = "Erro interno do servidor ao parar Application Pool", 
+                    details = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
             }
         }
 

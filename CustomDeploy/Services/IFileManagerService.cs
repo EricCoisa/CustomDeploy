@@ -49,5 +49,28 @@ namespace CustomDeploy.Services
         /// </summary>
         /// <returns>Lista de unidades de disco</returns>
         List<FileSystemItem> GetAvailableDrives();
+
+        /// <summary>
+        /// Cria uma nova pasta
+        /// </summary>
+        /// <param name="path">Caminho completo da nova pasta</param>
+        /// <returns>True se criada com sucesso</returns>
+        Task<bool> CreateDirectoryAsync(string path);
+
+        /// <summary>
+        /// Renomeia uma pasta
+        /// </summary>
+        /// <param name="oldPath">Caminho atual da pasta</param>
+        /// <param name="newName">Novo nome da pasta</param>
+        /// <returns>True se renomeada com sucesso</returns>
+        Task<bool> RenameDirectoryAsync(string oldPath, string newName);
+
+        /// <summary>
+        /// Deleta uma pasta
+        /// </summary>
+        /// <param name="path">Caminho da pasta a ser deletada</param>
+        /// <param name="recursive">Se deve deletar recursivamente (incluindo conteúdo)</param>
+        /// <returns>True se deletada com sucesso</returns>
+        Task<bool> DeleteDirectoryAsync(string path, bool recursive = false);
     }
 }

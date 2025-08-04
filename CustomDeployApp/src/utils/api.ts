@@ -1,4 +1,5 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse, AxiosError } from 'axios';
+import { toast } from 'react-toastify';
 
 // Configuração base da API
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5092';
@@ -55,6 +56,16 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       console.log('🚨 Token inválido ou expirado (401), limpando dados locais');
       
+      // Mostrar toast para erro de autenticação
+      toast.warn('Sessão expirada. Você será redirecionado para o login.', {
+        position: "top-center",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+      
       // Limpar dados de autenticação
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
@@ -63,7 +74,9 @@ apiClient.interceptors.response.use(
       // Se não estivermos na página de login, redirecionar
       if (window.location.pathname !== '/login' && window.location.pathname !== '/') {
         console.log('🔄 Redirecionando para login...');
-        window.location.href = '/login';
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 3000);
       }
     }
     
@@ -73,6 +86,20 @@ apiClient.interceptors.response.use(
 
 // Classe API com métodos HTTP
 class ApiService {
+  // Método para mostrar toast de sucesso
+  private showSuccessToast(message?: string): void {
+    if (message && message !== 'Requisição realizada com sucesso') {
+      toast.success(message, {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+    }
+  }
+
   // GET
   async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
     try {
@@ -101,15 +128,19 @@ class ApiService {
       
       // Verificar se a resposta já está no formato ApiResponse
       if (response.data && typeof response.data === 'object' && 'success' in response.data) {
-        return response.data as unknown as ApiResponse<T>;
+        const apiResponse = response.data as unknown as ApiResponse<T>;
+        this.showSuccessToast(apiResponse.message);
+        return apiResponse;
       }
       
       // Se não está no formato ApiResponse, converter para o formato padrão
-      return {
+      const apiResponse = {
         success: true,
         data: response.data,
         message: 'Requisição realizada com sucesso',
       };
+      this.showSuccessToast(apiResponse.message);
+      return apiResponse;
     } catch (error) {
       throw this.handleError(error as AxiosError);
     }
@@ -119,6 +150,7 @@ class ApiService {
   async put<T = unknown>(url: string, data?: RequestData, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
     try {
       const response = await apiClient.put<ApiResponse<T>>(url, data, config);
+      this.showSuccessToast(response.data.message);
       return response.data;
     } catch (error) {
       throw this.handleError(error as AxiosError);
@@ -129,6 +161,7 @@ class ApiService {
   async patch<T = unknown>(url: string, data?: RequestData, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
     try {
       const response = await apiClient.patch<ApiResponse<T>>(url, data, config);
+      this.showSuccessToast(response.data.message);
       return response.data;
     } catch (error) {
       throw this.handleError(error as AxiosError);
@@ -139,6 +172,7 @@ class ApiService {
   async delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
     try {
       const response = await apiClient.delete<ApiResponse<T>>(url, config);
+      this.showSuccessToast(response.data.message);
       return response.data;
     } catch (error) {
       throw this.handleError(error as AxiosError);
@@ -155,6 +189,7 @@ class ApiService {
           ...config?.headers,
         },
       });
+      this.showSuccessToast(response.data.message);
       return response.data;
     } catch (error) {
       throw this.handleError(error as AxiosError);
@@ -181,18 +216,39 @@ class ApiService {
 
   // Tratamento de erros
   private handleError(error: AxiosError): Error {
+    let errorMessage = '';
+    
     if (error.response) {
       // Erro da API
       const errorData = error.response.data as ApiErrorResponse;
-      const message = errorData?.message || 'Erro na requisição';
-      return new Error(message);
+      errorMessage = errorData?.message || 'Erro na requisição';
+      
+      // Adicionar detalhes de erros de validação se existirem
+      if (errorData?.errors) {
+        const validationErrors = Object.values(errorData.errors).flat().join(', ');
+        errorMessage += ` - ${validationErrors}`;
+      }
     } else if (error.request) {
       // Erro de rede
-      return new Error('Erro de conexão com o servidor');
+      errorMessage = 'Erro de conexão com o servidor';
     } else {
       // Erro desconhecido
-      return new Error('Erro desconhecido');
+      errorMessage = 'Erro desconhecido';
     }
+
+    // Exibir toast de erro (apenas se não for erro 401 - token expirado)
+    if (error.response?.status !== 401) {
+      toast.error(errorMessage, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+    }
+
+    return new Error(errorMessage);
   }
 }
 

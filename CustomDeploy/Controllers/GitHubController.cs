@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using CustomDeploy.Services;
+using CustomDeploy.Models;
 
 namespace CustomDeploy.Controllers
 {
@@ -145,16 +146,5 @@ namespace CustomDeploy.Controllers
                 return StatusCode(500, new { message = "Erro interno do servidor", details = ex.Message });
             }
         }
-    }
-
-    public class ValidateRepositoryRequest
-    {
-        public string RepoUrl { get; set; } = string.Empty;
-    }
-
-    public class ValidateBranchRequest
-    {
-        public string RepoUrl { get; set; } = string.Empty;
-        public string Branch { get; set; } = string.Empty;
     }
 }

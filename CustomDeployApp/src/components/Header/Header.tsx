@@ -9,19 +9,22 @@ const HeaderContainer = styled.header`
   backdrop-filter: blur(10px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   border-radius: 1rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
+  width: 100%;
+  box-sizing: border-box;
 `;
 
 const HeaderContent = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem 2rem;
+  padding: 1rem 1.5rem;
   
   @media (max-width: 768px) {
     flex-direction: column;
     gap: 1rem;
     text-align: center;
+    padding: 1rem;
   }
 `;
 
@@ -160,6 +163,24 @@ export const Header: React.FC<HeaderProps> = ({
                 $isActive={location.pathname === '/dashboard'}
               >
                 📊 Dashboard
+              </NavLink>
+              <NavLink 
+                to="/iis" 
+                $isActive={location.pathname === '/iis'}
+              >
+                🖥️ IIS
+              </NavLink>
+              <NavLink 
+                to="/publications" 
+                $isActive={location.pathname === '/publications'}
+              >
+                📦 Publicações
+              </NavLink>
+              <NavLink 
+                to="/deploy" 
+                $isActive={location.pathname === '/deploy'}
+              >
+                🚀 Deploy
               </NavLink>
               <NavLink 
                 to="/test" 

@@ -1,9 +1,13 @@
 import styled from 'styled-components';
 
 export const DashboardContainer = styled.div`
+  width: 100%;
+  height: 100vh;
   min-height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 2rem;
+  padding: 1rem;
+  box-sizing: border-box;
+  overflow-y: auto;
 `;
 
 export const Header = styled.header`
@@ -12,15 +16,18 @@ export const Header = styled.header`
   align-items: center;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
-  padding: 1.5rem 2rem;
+  padding: 1rem 1.5rem;
   border-radius: 1rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
+  width: 100%;
+  box-sizing: border-box;
   
   @media (max-width: 768px) {
     flex-direction: column;
     gap: 1rem;
     text-align: center;
+    padding: 1rem;
   }
 `;
 
@@ -79,44 +86,50 @@ export const LogoutButton = styled.button`
 `;
 
 export const Content = styled.main`
-  max-width: 1200px;
+  width: 100%;
+  max-width: 1400px;
   margin: 0 auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 `;
 
 export const WelcomeCard = styled.div`
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
-  padding: 2rem;
+  padding: 1.5rem;
   border-radius: 1rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
+  width: 100%;
+  box-sizing: border-box;
   
   h2 {
     color: #1f2937;
     margin: 0 0 1rem 0;
-    font-size: 1.75rem;
+    font-size: 1.5rem;
   }
   
   p {
     color: #6b7280;
+    margin: 0 0 1rem 0;
     line-height: 1.6;
-    margin: 0;
-    font-size: 1.1rem;
   }
 `;
 
 export const StatsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+  width: 100%;
 `;
 
 export const StatCard = styled.div`
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
-  padding: 2rem;
+  padding: 1.5rem;
   border-radius: 1rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   text-align: center;

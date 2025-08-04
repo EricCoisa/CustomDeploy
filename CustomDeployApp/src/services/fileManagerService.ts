@@ -377,6 +377,31 @@ class FileManagerService {
       default: return '📄';
     }
   }
+
+  // Criar uma nova pasta
+  async createDirectory(path: string): Promise<ApiResponse<{ message: string; path: string }>> {
+    return await api.post<{ message: string; path: string }>('/FileManager/create-directory', {
+      path
+    });
+  }
+
+  // Renomear uma pasta
+  async renameDirectory(oldPath: string, newName: string): Promise<ApiResponse<{ message: string; oldPath: string; newPath: string }>> {
+    return await api.put<{ message: string; oldPath: string; newPath: string }>('/FileManager/rename-directory', {
+      oldPath,
+      newName
+    });
+  }
+
+  // Deletar uma pasta
+  async deleteDirectory(path: string, recursive: boolean = false): Promise<ApiResponse<{ message: string; path: string; recursive: boolean }>> {
+    return await api.delete<{ message: string; path: string; recursive: boolean }>('/FileManager/delete-directory', {
+      data: {
+        path,
+        recursive
+      }
+    });
+  }
 }
 
 // Exportar instância única

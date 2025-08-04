@@ -1,0 +1,11 @@
+### Testar sistema de metadados (deploys.json)
+GET https://localhost:7157/deploy/test-metadata
+Authorization: Bearer {{$dotenv JWT_TOKEN}}
+
+### Listar publicações (deve criar o arquivo se não existir)
+GET https://localhost:7157/deploy/publications
+Authorization: Bearer {{$dotenv JWT_TOKEN}}
+
+### Obter todos os metadados diretamente
+GET https://localhost:7157/deploy/metadata
+Authorization: Bearer {{$dotenv JWT_TOKEN}}

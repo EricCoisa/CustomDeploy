@@ -121,8 +121,8 @@ namespace CustomDeploy.Services
                 _logger.LogInformation("Validando repositório: {RepoUrl}", repoUrl);
 
                 var (owner, repo) = ExtractOwnerAndRepoFromUrl(repoUrl);
-                if (string.IsNullOrEmpty(owner) || string.IsNullOrEmpty(repo))
-                {
+                
+                {if (string.IsNullOrEmpty(owner) || string.IsNullOrEmpty(repo))
                     return (false, "URL do repositório inválida. Formato esperado: https://github.com/owner/repo.git", null);
                 }
 

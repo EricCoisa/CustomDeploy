@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ProtectedLayout, Modal, Button, FileBrowser } from '../../components';
 import {
   WelcomeCard,
@@ -9,6 +10,7 @@ import {
 } from './Styled';
 
 export const DashboardView: React.FC = () => {
+  const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showFileBrowser, setShowFileBrowser] = useState(false);
@@ -43,6 +45,9 @@ export const DashboardView: React.FC = () => {
           </Button>
           <Button onClick={() => setShowFileBrowser(true)}>
             📁 Navegador de Arquivos
+          </Button>
+          <Button onClick={() => navigate('/iis')}>
+            🖥️ Gerenciar IIS
           </Button>
         </div>
         

@@ -272,6 +272,15 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<string[]>([]);
+  
+  // Estados para operações de pasta
+  const [showCreateFolder, setShowCreateFolder] = useState(false);
+  const [showRenameFolder, setShowRenameFolder] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [renameTarget, setRenameTarget] = useState<FileSystemItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<FileSystemItem | null>(null);
+  const [operationLoading, setOperationLoading] = useState(false);
 
   // Carregar conteúdo do diretório
   const loadDirectory = async (path: string) => {
@@ -350,6 +359,97 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
     }
   };
 
+  // Criar nova pasta
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return;
+    
+    setOperationLoading(true);
+    try {
+      const newPath = `${currentPath}\\${newFolderName.trim()}`;
+      const response = await fileManagerService.createDirectory(newPath);
+      
+      if (response.success) {
+        // Recarregar diretório atual
+        await loadDirectory(currentPath);
+        setShowCreateFolder(false);
+        setNewFolderName('');
+      } else {
+        setError(response.message || 'Erro ao criar pasta');
+      }
+    } catch (err) {
+      setError('Erro ao criar pasta');
+    } finally {
+      setOperationLoading(false);
+    }
+  };
+
+  // Renomear pasta
+  const handleRenameFolder = async () => {
+    if (!renameTarget || !newFolderName.trim()) return;
+    
+    setOperationLoading(true);
+    try {
+      const response = await fileManagerService.renameDirectory(renameTarget.fullPath, newFolderName.trim());
+      
+      if (response.success) {
+        // Recarregar diretório atual
+        await loadDirectory(currentPath);
+        setShowRenameFolder(false);
+        setRenameTarget(null);
+        setNewFolderName('');
+      } else {
+        setError(response.message || 'Erro ao renomear pasta');
+      }
+    } catch (err) {
+      setError('Erro ao renomear pasta');
+    } finally {
+      setOperationLoading(false);
+    }
+  };
+
+  // Deletar pasta
+  const handleDeleteFolder = async () => {
+    if (!deleteTarget) return;
+    
+    setOperationLoading(true);
+    try {
+      const response = await fileManagerService.deleteDirectory(deleteTarget.fullPath, true);
+      
+      if (response.success) {
+        // Recarregar diretório atual
+        await loadDirectory(currentPath);
+        setShowDeleteConfirm(false);
+        setDeleteTarget(null);
+        setSelectedItem(null);
+      } else {
+        setError(response.message || 'Erro ao deletar pasta');
+      }
+    } catch (err) {
+      setError('Erro ao deletar pasta');
+    } finally {
+      setOperationLoading(false);
+    }
+  };
+
+  // Abrir dialog para criar pasta
+  const openCreateFolderDialog = () => {
+    setNewFolderName('');
+    setShowCreateFolder(true);
+  };
+
+  // Abrir dialog para renomear pasta
+  const openRenameFolderDialog = (item: FileSystemItem) => {
+    setRenameTarget(item);
+    setNewFolderName(item.name);
+    setShowRenameFolder(true);
+  };
+
+  // Abrir confirmação para deletar pasta
+  const openDeleteConfirmation = (item: FileSystemItem) => {
+    setDeleteTarget(item);
+    setShowDeleteConfirm(true);
+  };
+
   // Carregar diretório inicial quando modal abre
   useEffect(() => {
     if (isOpen) {
@@ -364,7 +464,15 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
       
-      if (e.key === 'Backspace' && history.length > 0) {
+      // Verificar se o foco está em um input - se estiver, não processar atalhos
+      const activeElement = document.activeElement;
+      const isInputFocused = activeElement && (
+        activeElement.tagName === 'INPUT' || 
+        activeElement.tagName === 'TEXTAREA' ||
+        (activeElement as HTMLElement).contentEditable === 'true'
+      );
+      
+      if (e.key === 'Backspace' && history.length > 0 && !isInputFocused) {
         e.preventDefault();
         navigateBack();
       }
@@ -415,13 +523,52 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
             {item.lastModified && ` • ${new Date(item.lastModified).toLocaleDateString()}`}
           </FileDetails>
         </FileInfo>
+        
+        {/* Botões de ação para pastas */}
         {item.isDirectory && item.isAccessible && (
-          <NavigateArrow
-            onClick={handleNavigateClick}
-            title={`Abrir pasta: ${item.name}`}
-          >
-            Abrir
-          </NavigateArrow>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                openRenameFolderDialog(item);
+              }}
+              style={{
+                background: 'transparent',
+                border: '1px solid #d1d5db',
+                borderRadius: '4px',
+                padding: '4px 8px',
+                cursor: 'pointer',
+                fontSize: '12px'
+              }}
+              title="Renomear pasta"
+            >
+              ✏️
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                openDeleteConfirmation(item);
+              }}
+              style={{
+                background: 'transparent',
+                border: '1px solid #ef4444',
+                borderRadius: '4px',
+                padding: '4px 8px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                color: '#ef4444'
+              }}
+              title="Deletar pasta"
+            >
+              🗑️
+            </button>
+            <NavigateArrow
+              onClick={handleNavigateClick}
+              title={`Abrir pasta: ${item.name}`}
+            >
+              Abrir
+            </NavigateArrow>
+          </div>
         )}
       </FileItem>
     );
@@ -452,6 +599,13 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
           <PathDisplay title={currentPath}>
             {currentPath}
           </PathDisplay>
+          <ActionButton 
+            onClick={openCreateFolderDialog}
+            style={{ whiteSpace: 'nowrap' }}
+            title="Criar nova pasta"
+          >
+            📁+ Nova Pasta
+          </ActionButton>
         </ToolBar>
 
         <FileList>
@@ -495,6 +649,184 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
           </ActionButton>
         </ActionBar>
       </FileBrowserContainer>
+
+      {/* Modal para criar pasta */}
+      {showCreateFolder && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000
+        }}>
+          <div style={{
+            background: 'white',
+            padding: '1.5rem',
+            borderRadius: '8px',
+            minWidth: '400px',
+            maxWidth: '500px'
+          }}>
+            <h3 style={{ margin: '0 0 1rem 0' }}>Criar Nova Pasta</h3>
+            <p style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: '#666' }}>
+              Pasta será criada em: {currentPath}
+            </p>
+            <input
+              type="text"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              placeholder="Nome da nova pasta"
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '4px',
+                marginBottom: '1rem'
+              }}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCreateFolder();
+                if (e.key === 'Escape') setShowCreateFolder(false);
+              }}
+            />
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <ActionButton 
+                onClick={() => setShowCreateFolder(false)}
+                disabled={operationLoading}
+              >
+                Cancelar
+              </ActionButton>
+              <ActionButton 
+                variant="primary" 
+                onClick={handleCreateFolder}
+                disabled={!newFolderName.trim() || operationLoading}
+              >
+                {operationLoading ? 'Criando...' : 'Criar'}
+              </ActionButton>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para renomear pasta */}
+      {showRenameFolder && renameTarget && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000
+        }}>
+          <div style={{
+            background: 'white',
+            padding: '1.5rem',
+            borderRadius: '8px',
+            minWidth: '400px',
+            maxWidth: '500px'
+          }}>
+            <h3 style={{ margin: '0 0 1rem 0' }}>Renomear Pasta</h3>
+            <p style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: '#666' }}>
+              Renomeando: {renameTarget.name}
+            </p>
+            <input
+              type="text"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              placeholder="Novo nome da pasta"
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '4px',
+                marginBottom: '1rem'
+              }}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleRenameFolder();
+                if (e.key === 'Escape') setShowRenameFolder(false);
+              }}
+            />
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <ActionButton 
+                onClick={() => {
+                  setShowRenameFolder(false);
+                  setRenameTarget(null);
+                }}
+                disabled={operationLoading}
+              >
+                Cancelar
+              </ActionButton>
+              <ActionButton 
+                variant="primary" 
+                onClick={handleRenameFolder}
+                disabled={!newFolderName.trim() || operationLoading}
+              >
+                {operationLoading ? 'Renomeando...' : 'Renomear'}
+              </ActionButton>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmação para deletar pasta */}
+      {showDeleteConfirm && deleteTarget && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000
+        }}>
+          <div style={{
+            background: 'white',
+            padding: '1.5rem',
+            borderRadius: '8px',
+            minWidth: '400px',
+            maxWidth: '500px'
+          }}>
+            <h3 style={{ margin: '0 0 1rem 0', color: '#ef4444' }}>⚠️ Confirmar Exclusão</h3>
+            <p style={{ margin: '0 0 1rem 0' }}>
+              Tem certeza que deseja deletar a pasta <strong>"{deleteTarget.name}"</strong>?
+            </p>
+            <p style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: '#ef4444' }}>
+              ⚠️ Esta ação será permanente e deletará todo o conteúdo da pasta!
+            </p>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <ActionButton 
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeleteTarget(null);
+                }}
+                disabled={operationLoading}
+              >
+                Cancelar
+              </ActionButton>
+              <ActionButton 
+                variant="primary" 
+                onClick={handleDeleteFolder}
+                disabled={operationLoading}
+                style={{ background: '#ef4444' }}
+              >
+                {operationLoading ? 'Deletando...' : 'Deletar'}
+              </ActionButton>
+            </div>
+          </div>
+        </div>
+      )}
     </Modal>
   );
 };

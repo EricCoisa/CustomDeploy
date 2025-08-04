@@ -1,0 +1,145 @@
+### IIS Start/Stop Operations Test Suite
+### Base URL: http://localhost:5092
+### JWT Token will be generated through login
+
+##################################################
+### 1. AUTENTICAÇÃO - Obter JWT Token
+POST http://localhost:5092/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "password"
+}
+
+### Copie o token da resposta e use nas próximas requisições
+### Authorization: Bearer {token_aqui}
+
+##################################################
+### 2. SITES IIS - Start/Stop Operations
+
+### 2.1. Iniciar um Site
+POST http://localhost:5092/api/iis/sites/Default Web Site/start
+Authorization: Bearer {token_aqui}
+
+### 2.2. Parar um Site
+POST http://localhost:5092/api/iis/sites/Default Web Site/stop
+Authorization: Bearer {token_aqui}
+
+### 2.3. Iniciar um Site Personalizado (substitua pelo nome do seu site)
+POST http://localhost:5092/api/iis/sites/MeuSite/start
+Authorization: Bearer {token_aqui}
+
+### 2.4. Parar um Site Personalizado
+POST http://localhost:5092/api/iis/sites/MeuSite/stop
+Authorization: Bearer {token_aqui}
+
+##################################################
+### 3. APPLICATION POOLS - Start/Stop Operations
+
+### 3.1. Iniciar um Application Pool
+POST http://localhost:5092/api/iis/app-pools/DefaultAppPool/start
+Authorization: Bearer {token_aqui}
+
+### 3.2. Parar um Application Pool
+POST http://localhost:5092/api/iis/app-pools/DefaultAppPool/stop
+Authorization: Bearer {token_aqui}
+
+### 3.3. Iniciar um Application Pool Personalizado
+POST http://localhost:5092/api/iis/app-pools/MeuAppPool/start
+Authorization: Bearer {token_aqui}
+
+### 3.4. Parar um Application Pool Personalizado
+POST http://localhost:5092/api/iis/app-pools/MeuAppPool/stop
+Authorization: Bearer {token_aqui}
+
+##################################################
+### 4. APPLICATIONS - Start/Stop Operations
+
+### 4.1. Iniciar uma Aplicação (raiz do site)
+POST http://localhost:5092/api/iis/sites/Default Web Site/applications/start/
+Authorization: Bearer {token_aqui}
+
+### 4.2. Parar uma Aplicação (raiz do site)
+POST http://localhost:5092/api/iis/sites/Default Web Site/applications/stop/
+Authorization: Bearer {token_aqui}
+
+### 4.3. Iniciar uma Aplicação em sub-path
+POST http://localhost:5092/api/iis/sites/Default Web Site/applications/start/api
+Authorization: Bearer {token_aqui}
+
+### 4.4. Parar uma Aplicação em sub-path
+POST http://localhost:5092/api/iis/sites/Default Web Site/applications/stop/api
+Authorization: Bearer {token_aqui}
+
+### 4.5. Iniciar uma Aplicação em path com múltiplos segmentos
+POST http://localhost:5092/api/iis/sites/MeuSite/applications/start/app/v1
+Authorization: Bearer {token_aqui}
+
+### 4.6. Parar uma Aplicação em path com múltiplos segmentos
+POST http://localhost:5092/api/iis/sites/MeuSite/applications/stop/app/v1
+Authorization: Bearer {token_aqui}
+
+##################################################
+### 5. VERIFICAÇÃO DE STATUS (Para testar antes/depois das operações)
+
+### 5.1. Listar todos os Sites e seus status
+GET http://localhost:5092/api/iis/sites
+Authorization: Bearer {token_aqui}
+
+### 5.2. Obter informações específicas de um Site
+GET http://localhost:5092/api/iis/sites/Default Web Site
+Authorization: Bearer {token_aqui}
+
+### 5.3. Listar todos os Application Pools
+GET http://localhost:5092/api/iis/app-pools
+Authorization: Bearer {token_aqui}
+
+### 5.4. Listar aplicações de um site específico
+GET http://localhost:5092/api/iis/sites/Default Web Site/applications
+Authorization: Bearer {token_aqui}
+
+##################################################
+### 6. EXEMPLOS DE CENÁRIOS COMPLEXOS
+
+### 6.1. Reiniciar um Site Completo (Parar -> Aguardar -> Iniciar)
+POST http://localhost:5092/api/iis/sites/MeuSite/stop
+Authorization: Bearer {token_aqui}
+
+### Aguarde alguns segundos e execute o próximo
+POST http://localhost:5092/api/iis/sites/MeuSite/start
+Authorization: Bearer {token_aqui}
+
+### 6.2. Reiniciar um Application Pool (Parar -> Aguardar -> Iniciar)
+POST http://localhost:5092/api/iis/app-pools/MeuAppPool/stop
+Authorization: Bearer {token_aqui}
+
+### Aguarde alguns segundos e execute o próximo
+POST http://localhost:5092/api/iis/app-pools/MeuAppPool/start
+Authorization: Bearer {token_aqui}
+
+##################################################
+### 7. TESTES DE ERROR HANDLING
+
+### 7.1. Tentar iniciar um Site que não existe
+POST http://localhost:5092/api/iis/sites/SiteInexistente/start
+Authorization: Bearer {token_aqui}
+
+### 7.2. Tentar parar um Application Pool que não existe
+POST http://localhost:5092/api/iis/app-pools/PoolInexistente/stop
+Authorization: Bearer {token_aqui}
+
+### 7.3. Tentar iniciar uma Aplicação em um site que não existe
+POST http://localhost:5092/api/iis/sites/SiteInexistente/applications/start/app
+Authorization: Bearer {token_aqui}
+
+### 7.4. Tentar operar sem token de autenticação (deve retornar 401)
+POST http://localhost:5092/api/iis/sites/Default Web Site/start
+
+##################################################
+### NOTAS IMPORTANTES:
+### - Substitua {token_aqui} pelo token JWT válido obtido no login
+### - Substitua os nomes dos sites, pools e aplicações pelos existentes no seu IIS
+### - As operações requerem privilégios de administrador
+### - Use o endpoint /api/iis/admin-status para verificar privilégios
+### - Use o endpoint /api/iis/request-permissions para verificar permissões necessárias
