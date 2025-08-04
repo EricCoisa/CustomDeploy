@@ -3,6 +3,7 @@ import loginReducer from './login/reducers';
 import iisReducer from './iis';
 import publicationsReducer from './publications';
 import deployReducer from './deploy';
+import dashboardReducer from './dashboard';
 
 // Configurar a store
 export const store = configureStore({
@@ -11,6 +12,7 @@ export const store = configureStore({
     iis: iisReducer,
     publications: publicationsReducer,
     deploy: deployReducer,
+    dashboard: dashboardReducer,
     // Adicionar outros reducers aqui conforme necessário
   },
   devTools: import.meta.env.DEV, // Habilitar Redux DevTools apenas em desenvolvimento
