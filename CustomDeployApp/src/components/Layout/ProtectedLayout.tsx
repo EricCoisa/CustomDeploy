@@ -13,10 +13,9 @@ const LayoutContainer = styled.div`
 `;
 
 const ContentWrapper = styled.main`
-  max-width: 1400px;
   width: 100%;
   margin: 0 auto;
-  height: calc(100vh - 2rem);
+
   display: flex;
   flex-direction: column;
 `;

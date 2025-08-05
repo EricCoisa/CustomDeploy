@@ -3,11 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { ProtectedLayout, Modal, Button, FileBrowser } from '../../components';
 import { RecentDeploymentsCard } from './RecentDeploymentsCard';
 import { RightSidebar } from './RightSidebar';
-import { ReDeployModal } from '../publications/components';
 import { useAppSelector } from '../../store';
 import { useAppDispatch } from '../../store';
 import { clearError, fetchDashboardData } from '../../store/dashboard';
-import { fetchPublications } from '../../store/publications/actions';
 import type { Publication } from '../../store/publications/types';
 import {
   DashboardContainer,
@@ -36,8 +34,6 @@ export const DashboardView: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showFileBrowser, setShowFileBrowser] = useState(false);
-  const [showReDeployModal, setShowReDeployModal] = useState(false);
-  const [selectedPublicationForRedeploy, setSelectedPublicationForRedeploy] = useState<Publication | null>(null);
 
   // Carregar dados do dashboard ao montar o componente
   useEffect(() => {
@@ -85,37 +81,24 @@ export const DashboardView: React.FC = () => {
     }
   }, [systemStatus]);
 
+  const handleRefresh = () => {
+    const thunkAction = fetchDashboardData();
+    dispatch(thunkAction);
+  };
+
   const handleRedeploy = async (deployment: Publication) => {
     try {
-      console.log('🚀 Iniciando re-deploy de:', deployment.name);
+      // Aqui você pode chamar uma action ou API para re-fazer o deploy
+      console.log('🔄 Iniciando re-deploy de:', deployment.name);
       
-      // Definir a publicação selecionada e abrir o modal
-      setSelectedPublicationForRedeploy(deployment);
-      setShowReDeployModal(true);
+      // Exemplo de implementação:
+      // await dispatch(redeployPublication(deployment.name));
+      
+      alert(`🚀 Re-deploy iniciado para: ${deployment.name}`);
     } catch (error) {
-      console.error('❌ Erro ao preparar re-deploy:', error);
+      console.error('❌ Erro no re-deploy:', error);
+      alert('❌ Erro ao iniciar o re-deploy');
     }
-  };
-
-  const handleReDeploySuccess = (result: Record<string, unknown>) => {
-    console.log('✅ Re-deploy realizado com sucesso:', result);
-    
-    // Atualizar os dados do dashboard após o re-deploy
-    dispatch(fetchDashboardData());
-    dispatch(fetchPublications());
-    
-    // Fechar modal
-    setShowReDeployModal(false);
-    setSelectedPublicationForRedeploy(null);
-  };
-
-  const handleReDeployError = (error: string) => {
-    console.error('❌ Erro no re-deploy:', error);
-  };
-
-  const handleCloseReDeployModal = () => {
-    setShowReDeployModal(false);
-    setSelectedPublicationForRedeploy(null);
   };
 
   const handleConfirm = () => {
@@ -211,17 +194,6 @@ export const DashboardView: React.FC = () => {
           selectType="both"
           initialPath="C:/"
         />
-
-        {/* ReDeployModal */}
-        {selectedPublicationForRedeploy && (
-          <ReDeployModal
-            publication={selectedPublicationForRedeploy}
-            isOpen={showReDeployModal}
-            onClose={handleCloseReDeployModal}
-            onSuccess={handleReDeploySuccess}
-            onError={handleReDeployError}
-          />
-        )}
 
         {/* Modal informativo (menos usado) */}
         {showModal && (

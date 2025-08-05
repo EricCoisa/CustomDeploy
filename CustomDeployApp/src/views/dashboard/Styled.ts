@@ -1,46 +1,67 @@
 import styled from 'styled-components';
 
 export const DashboardContainer = styled.div`
-  padding: 1.5rem;
-  max-width: 1400px;
-  margin: 0 auto;
+  padding: 0;
+  width: 100%;
+  margin: 0;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  box-sizing: border-box;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   
   @media (max-width: 768px) {
-    padding: 1rem;
+    height: calc(100vh - 50px); /* Header menor no mobile */
   }
 `;
 
 export const WelcomeCard = styled.div`
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  padding: 2rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  padding: 1rem;
+  margin: 1rem;
   border-radius: 1rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
   text-align: center;
-  margin-bottom: 2rem;
+  flex-shrink: 0;
   
   h2 {
-    color: #1f2937;
-    margin: 0 0 1rem 0;
-    font-size: 1.75rem;
+    color: #1e293b;
+    margin: 0 0 0.5rem 0;
+    font-size: 1.375rem;
+    font-weight: 700;
   }
   
   p {
-    color: #6b7280;
-    line-height: 1.6;
+    color: #64748b;
+    line-height: 1.4;
     margin: 0;
-    font-size: 1.1rem;
+    font-size: 0.95rem;
   }
   
   @media (max-width: 768px) {
-    padding: 1.5rem;
+    margin: 0.75rem;
+    padding: 0.875rem;
     
     h2 {
-      font-size: 1.5rem;
+      font-size: 1.25rem;
     }
     
     p {
-      font-size: 1rem;
+      font-size: 0.9rem;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    margin: 0.5rem;
+    padding: 0.75rem;
+    
+    h2 {
+      font-size: 1.125rem;
+    }
+    
+    p {
+      font-size: 0.85rem;
     }
   }
 `;
@@ -103,11 +124,35 @@ export const StatLabel = styled.div`
 `;
 
 export const DashboardContent = styled.div`
+  flex: 1;
   display: grid;
-  gap: 2rem;
+  grid-template-columns: 2.2fr 1fr; /* Melhor aproveitamento - mais espaço para deployments */
+  gap: 1.25rem;
+  width: 100%;
+  overflow: hidden;
+  min-height: 0;
+  padding: 1rem;
+  box-sizing: border-box;
+
+  @media (max-width: 1200px) {
+    grid-template-columns: 2fr 1fr;
+    gap: 1rem;
+  }
+
+  @media (max-width: 1024px) {
+    grid-template-columns: 1.8fr 1fr;
+    gap: 0.875rem;
+  }
   
   @media (max-width: 768px) {
-    gap: 1.5rem;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+  
+  @media (max-width: 480px) {
+    gap: 0.5rem;
+    padding: 0.5rem;
   }
 `;
 
@@ -147,12 +192,19 @@ export const SectionTitle = styled.h2`
 `;
 
 export const SystemStatusContainer = styled.div`
-  display: flex;
-  gap: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
   margin-top: 1rem;
+  max-width: 100%;
   
   @media (max-width: 768px) {
-    flex-direction: column;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+  
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
     gap: 0.5rem;
   }
 `;
@@ -160,11 +212,15 @@ export const SystemStatusContainer = styled.div`
 export const StatusIndicator = styled.div<{ status: 'online' | 'offline' | 'unknown' }>`
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 0.75rem;
   border-radius: 0.5rem;
   font-size: 0.875rem;
   font-weight: 500;
+  text-align: center;
+  min-width: 0;
+  word-break: break-word;
   
   ${props => {
     switch (props.status) {
@@ -197,35 +253,58 @@ export const StatusIndicator = styled.div<{ status: 'online' | 'offline' | 'unkn
     height: 8px;
     border-radius: 50%;
     background-color: currentColor;
+    flex-shrink: 0;
+  }
+  
+  @media (max-width: 480px) {
+    font-size: 0.75rem;
+    padding: 0.375rem 0.5rem;
+    
+    &::before {
+      width: 6px;
+      height: 6px;
+    }
   }
 `;
 
 export const ErrorMessage = styled.div`
   background-color: #fee2e2;
   color: #991b1b;
-  padding: 1rem;
+  padding: 0.875rem 1rem;
   border-radius: 0.5rem;
-  margin-bottom: 1rem;
+  margin: 0.5rem 1rem;
   border: 1px solid #fecaca;
+  flex-shrink: 0;
   
   strong {
     font-weight: 600;
   }
+  
+  @media (max-width: 768px) {
+    margin: 0.5rem 0.75rem;
+    padding: 0.75rem;
+  }
+  
+  @media (max-width: 480px) {
+    margin: 0.5rem;
+    padding: 0.625rem;
+  }
 `;
 
 export const RefreshButton = styled.button`
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
   color: white;
   border: none;
   padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
   
   &:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
   }
   
   &:disabled {

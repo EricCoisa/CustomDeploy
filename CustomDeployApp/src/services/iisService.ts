@@ -29,7 +29,9 @@ class IISService {
 
   // Sites CRUD
   async getSites(): Promise<ApiResponse<{ sites: IISSite[] }>> {
-    return await api.get<{ sites: IISSite[] }>('/iis/sites');
+    return await api.get<{ sites: IISSite[] }>('/iis/sites', {
+      timeout: 30000 // 30 segundos para operações do IIS
+    });
   }
 
   async getSiteInfo(siteName: string): Promise<ApiResponse<{ site: IISSite }>> {
@@ -89,7 +91,9 @@ class IISService {
 
   // Application Pools CRUD
   async getAppPools(): Promise<ApiResponse<{ appPools: IISAppPool[] }>> {
-    return await api.get<{ appPools: IISAppPool[] }>('/iis/app-pools');
+    return await api.get<{ appPools: IISAppPool[] }>('/iis/app-pools', {
+      timeout: 30000 // 30 segundos para operações do IIS
+    });
   }
 
   async createAppPool(poolData: CreateAppPoolRequest): Promise<ApiResponse<{ appPool: IISAppPool }>> {

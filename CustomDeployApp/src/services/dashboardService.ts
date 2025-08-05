@@ -36,6 +36,13 @@ interface GitHubConnectivityResponse {
   connected?: boolean;
   isConnected?: boolean;
   message?: string;
+  userInfo?: {
+    login: string;
+    name: string;
+    email?: string | null;
+    plan?: string;
+  };
+  timestamp?: string;
 }
 
 class DashboardService {
@@ -175,13 +182,19 @@ class DashboardService {
         // Testar conectividade do GitHub
         try {
           const githubResponse = await api.get('/github/test-connectivity');
-          const githubData = githubResponse?.data as GitHubConnectivityResponse;
-          if (githubData?.success === true || githubData?.connected === true || githubData?.isConnected === true) {
+          const githubData = githubResponse as GitHubConnectivityResponse;
+          console.log('🔍 githubResponse:', githubResponse);
+          console.log('🔍 Resposta do GitHub:', githubData);
+          
+          if (githubData?.success === true) {
             githubStatus = 'connected';
+            console.log('✅ GitHub conectado:', githubData.userInfo?.login || 'Usuário desconhecido');
           } else {
             githubStatus = 'disconnected';
+            console.log('❌ GitHub desconectado:', githubData?.message || 'Sem detalhes');
           }
-        } catch {
+        } catch (error) {
+          console.error('❌ Erro ao testar GitHub:', error);
           githubStatus = 'disconnected';
         }
       }

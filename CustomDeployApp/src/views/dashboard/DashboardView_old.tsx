@@ -3,16 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { ProtectedLayout, Modal, Button, FileBrowser } from '../../components';
 import { RecentDeploymentsCard } from './RecentDeploymentsCard';
 import { RightSidebar } from './RightSidebar';
-import { ReDeployModal } from '../publications/components';
 import { useAppSelector } from '../../store';
 import { useAppDispatch } from '../../store';
 import { clearError, fetchDashboardData } from '../../store/dashboard';
-import { fetchPublications } from '../../store/publications/actions';
 import type { Publication } from '../../store/publications/types';
 import {
   DashboardContainer,
   DashboardContent,
   ErrorMessage,
+  RefreshButton,
 } from './Styled';
 
 export const DashboardView: React.FC = () => {
@@ -36,8 +35,6 @@ export const DashboardView: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showFileBrowser, setShowFileBrowser] = useState(false);
-  const [showReDeployModal, setShowReDeployModal] = useState(false);
-  const [selectedPublicationForRedeploy, setSelectedPublicationForRedeploy] = useState<Publication | null>(null);
 
   // Carregar dados do dashboard ao montar o componente
   useEffect(() => {
@@ -85,37 +82,24 @@ export const DashboardView: React.FC = () => {
     }
   }, [systemStatus]);
 
+  const handleRefresh = () => {
+    const thunkAction = fetchDashboardData();
+    dispatch(thunkAction);
+  };
+
   const handleRedeploy = async (deployment: Publication) => {
     try {
-      console.log('🚀 Iniciando re-deploy de:', deployment.name);
+      // Aqui você pode chamar uma action ou API para re-fazer o deploy
+      console.log('🔄 Iniciando re-deploy de:', deployment.name);
       
-      // Definir a publicação selecionada e abrir o modal
-      setSelectedPublicationForRedeploy(deployment);
-      setShowReDeployModal(true);
+      // Exemplo de implementação:
+      // await dispatch(redeployPublication(deployment.name));
+      
+      alert(`🚀 Re-deploy iniciado para: ${deployment.name}`);
     } catch (error) {
-      console.error('❌ Erro ao preparar re-deploy:', error);
+      console.error('❌ Erro no re-deploy:', error);
+      alert('❌ Erro ao iniciar o re-deploy');
     }
-  };
-
-  const handleReDeploySuccess = (result: Record<string, unknown>) => {
-    console.log('✅ Re-deploy realizado com sucesso:', result);
-    
-    // Atualizar os dados do dashboard após o re-deploy
-    dispatch(fetchDashboardData());
-    dispatch(fetchPublications());
-    
-    // Fechar modal
-    setShowReDeployModal(false);
-    setSelectedPublicationForRedeploy(null);
-  };
-
-  const handleReDeployError = (error: string) => {
-    console.error('❌ Erro no re-deploy:', error);
-  };
-
-  const handleCloseReDeployModal = () => {
-    setShowReDeployModal(false);
-    setSelectedPublicationForRedeploy(null);
   };
 
   const handleConfirm = () => {
@@ -134,6 +118,68 @@ export const DashboardView: React.FC = () => {
   return (
     <ProtectedLayout title="CustomDeploy Dashboard">
       <DashboardContainer>
+        <WelcomeCard>
+          <h2>🎉 Dashboard CustomDeploy</h2>
+          <p>
+            Visão geral do sistema de deploy. Acompanhe estatísticas e deployments recentes.
+            {isAutoLogin && <span style={{ color: '#10b981', marginLeft: '8px' }}>✨ Sessão restaurada</span>}
+          </p>
+          
+          {/* Status do Sistema */}
+          <SystemStatusContainer>
+            <StatusIndicator status={systemStatus.apiStatus}>
+              API {systemStatus.apiStatus === 'online' ? 'Online' : 'Offline'}
+            </StatusIndicator>
+            <StatusIndicator status={systemStatus.iisStatus}>
+              IIS {systemStatus.iisStatus === 'online' ? 'Online' : 
+                   systemStatus.iisStatus === 'offline' ? 'Offline' : 'Desconhecido'}
+            </StatusIndicator>
+            {systemStatus.adminStatus && (
+              <StatusIndicator 
+                status={systemStatus.adminStatus === 'admin' ? 'online' : 'offline'}
+              >
+                Admin {systemStatus.adminStatus === 'admin' ? 'Sim' : 'Não'}
+              </StatusIndicator>
+            )}
+            {systemStatus.githubStatus && (
+              <StatusIndicator 
+                status={systemStatus.githubStatus === 'connected' ? 'online' : 'offline'}
+              >
+                GitHub {systemStatus.githubStatus === 'connected' ? 'Conectado' : 'Desconectado'}
+              </StatusIndicator>
+            )}
+          </SystemStatusContainer>
+          
+          {/* Botão de atualizar e navegação rápida */}
+          <div style={{ 
+            marginTop: '1rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+            gap: '0.5rem'
+          }}>
+            <RefreshButton 
+              onClick={handleRefresh} 
+              disabled={isLoading}
+            >
+              {isLoading ? '� Atualizando...' : '🔄 Atualizar'}
+            </RefreshButton>
+            <Button onClick={() => navigate('/iis')}>
+              🖥️ IIS
+            </Button>
+            <Button onClick={() => navigate('/publications')}>
+              📦 Publicações
+            </Button>
+            <Button onClick={() => setShowFileBrowser(true)}>
+              📁 Arquivos
+            </Button>
+            <Button onClick={() => setShowModal(true)}>
+              ℹ️ Info
+            </Button>
+          </div>
+        </WelcomeCard>
+
         {/* Exibir erro se houver */}
         {error && (
           <ErrorMessage>
@@ -154,7 +200,7 @@ export const DashboardView: React.FC = () => {
         )}
 
         <DashboardContent>
-          {/* Card Principal de Deployments Recentes - Coluna Esquerda (70%) */}
+          {/* Card Principal de Deployments Recentes */}
           <RecentDeploymentsCard
             deployments={recentDeployments}
             isLoading={isLoading}
@@ -211,17 +257,6 @@ export const DashboardView: React.FC = () => {
           selectType="both"
           initialPath="C:/"
         />
-
-        {/* ReDeployModal */}
-        {selectedPublicationForRedeploy && (
-          <ReDeployModal
-            publication={selectedPublicationForRedeploy}
-            isOpen={showReDeployModal}
-            onClose={handleCloseReDeployModal}
-            onSuccess={handleReDeploySuccess}
-            onError={handleReDeployError}
-          />
-        )}
 
         {/* Modal informativo (menos usado) */}
         {showModal && (

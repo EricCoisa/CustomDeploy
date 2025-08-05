@@ -9,7 +9,10 @@ import type {
 class PublicationService {
   // Buscar todas as publicações
   async getPublications(): Promise<ApiResponse<{ publications: Publication[]; count: number }>> {
-    return await api.get<{ publications: Publication[]; count: number }>('/deploy/publications');
+    // Aumentar timeout para operações que podem demorar (listagem de sites IIS)
+    return await api.get<{ publications: Publication[]; count: number }>('/deploy/publications', {
+      timeout: 30000 // 30 segundos para operações do IIS
+    });
   }
 
   // Buscar uma publicação específica

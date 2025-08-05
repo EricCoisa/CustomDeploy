@@ -218,6 +218,22 @@ class ApiService {
   private handleError(error: AxiosError): Error {
     let errorMessage = '';
     
+    // Debug detalhado
+    console.error('🚨 Erro na API:', {
+      message: error.message,
+      code: error.code,
+      request: !!error.request,
+      response: !!error.response,
+      responseStatus: error.response?.status,
+      responseData: error.response?.data,
+      config: {
+        url: error.config?.url,
+        method: error.config?.method,
+        baseURL: error.config?.baseURL,
+        timeout: error.config?.timeout
+      }
+    });
+    
     if (error.response) {
       // Erro da API
       const errorData = error.response.data as ApiErrorResponse;
@@ -230,6 +246,11 @@ class ApiService {
       }
     } else if (error.request) {
       // Erro de rede
+      console.error('🔥 Erro de rede detectado:', {
+        readyState: error.request.readyState,
+        status: error.request.status,
+        responseURL: error.request.responseURL
+      });
       errorMessage = 'Erro de conexão com o servidor';
     } else {
       // Erro desconhecido
