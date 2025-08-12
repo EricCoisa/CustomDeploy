@@ -109,16 +109,16 @@ export const stopAppPool = createAsyncThunk(...)
 ## 📡 API Endpoints Utilizados
 
 ### Sites
-- `POST /api/iis/sites/{siteName}/start` - Iniciar site
-- `POST /api/iis/sites/{siteName}/stop` - Parar site
+- `POST /iis/sites/{siteName}/start` - Iniciar site
+- `POST /iis/sites/{siteName}/stop` - Parar site
 
 ### Applications  
-- `POST /api/iis/sites/{siteName}/applications/start/{appPath}` - Iniciar aplicação
-- `POST /api/iis/sites/{siteName}/applications/stop/{appPath}` - Parar aplicação
+- `POST /iis/sites/{siteName}/applications/start/{appPath}` - Iniciar aplicação
+- `POST /iis/sites/{siteName}/applications/stop/{appPath}` - Parar aplicação
 
 ### Application Pools
-- `POST /api/iis/app-pools/{poolName}/start` - Iniciar pool
-- `POST /api/iis/app-pools/{poolName}/stop` - Parar pool
+- `POST /iis/app-pools/{poolName}/start` - Iniciar pool
+- `POST /iis/app-pools/{poolName}/stop` - Parar pool
 
 ## 🔒 Segurança e Autenticação
 
@@ -132,7 +132,7 @@ export const stopAppPool = createAsyncThunk(...)
 ### **Iniciar Site**
 1. Usuário clica em "▶ Iniciar" no card do site
 2. Frontend dispara `startSite(siteName)` action
-3. Redux faz chamada para `/api/iis/sites/{siteName}/start`
+3. Redux faz chamada para `/iis/sites/{siteName}/start`
 4. Backend inicia o site no IIS
 5. State Redux é atualizado com novo status
 6. Interface atualiza automaticamente (botão muda para "⏹ Parar")

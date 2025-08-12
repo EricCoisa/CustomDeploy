@@ -1,6 +1,6 @@
 ### Teste de Deploy com site/aplicação parseado
 
-POST http://localhost:5000/api/deploy
+POST http://localhost:5000/deploy
 Content-Type: application/json
 Authorization: Bearer TOKEN_AQUI
 
@@ -15,7 +15,7 @@ Authorization: Bearer TOKEN_AQUI
 
 ### Teste de Deploy no ROOT do site (sem applicationPath nem targetPath)
 
-POST http://localhost:5000/api/deploy
+POST http://localhost:5000/deploy
 Content-Type: application/json
 Authorization: Bearer TOKEN_AQUI
 
@@ -29,7 +29,7 @@ Authorization: Bearer TOKEN_AQUI
 
 ### Teste de Deploy com aplicação separada (SEM targetPath - evita duplicação)
 
-POST http://localhost:5000/api/deploy  
+POST http://localhost:5000/deploy  
 Content-Type: application/json
 Authorization: Bearer TOKEN_AQUI
 
@@ -44,7 +44,7 @@ Authorization: Bearer TOKEN_AQUI
 
 ### Teste de Deploy com aplicação + targetPath diferente
 
-POST http://localhost:5000/api/deploy  
+POST http://localhost:5000/deploy  
 Content-Type: application/json
 Authorization: Bearer TOKEN_AQUI
 
@@ -60,7 +60,7 @@ Authorization: Bearer TOKEN_AQUI
 
 ### Teste de Deploy apenas com targetPath (comportamento original)
 
-POST http://localhost:5000/api/deploy
+POST http://localhost:5000/deploy
 Content-Type: application/json
 Authorization: Bearer TOKEN_AQUI
 

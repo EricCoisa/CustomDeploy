@@ -19,16 +19,16 @@
 ## 🎯 Funcionalidades Implementadas
 
 ### **Sites IIS**
-- ✅ **Start Site** - `POST /api/iis/sites/{siteName}/start`
-- ✅ **Stop Site** - `POST /api/iis/sites/{siteName}/stop`
+- ✅ **Start Site** - `POST /iis/sites/{siteName}/start`
+- ✅ **Stop Site** - `POST /iis/sites/{siteName}/stop`
 
 ### **Applications**
-- ✅ **Start Application** - `POST /api/iis/sites/{siteName}/applications/start/{appPath}`
-- ✅ **Stop Application** - `POST /api/iis/sites/{siteName}/applications/stop/{appPath}`
+- ✅ **Start Application** - `POST /iis/sites/{siteName}/applications/start/{appPath}`
+- ✅ **Stop Application** - `POST /iis/sites/{siteName}/applications/stop/{appPath}`
 
 ### **Application Pools**
-- ✅ **Start Pool** - `POST /api/iis/app-pools/{poolName}/start`
-- ✅ **Stop Pool** - `POST /api/iis/app-pools/{poolName}/stop`
+- ✅ **Start Pool** - `POST /iis/app-pools/{poolName}/start`
+- ✅ **Stop Pool** - `POST /iis/app-pools/{poolName}/stop`
 
 ## 🔧 Características Técnicas
 

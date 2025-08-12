@@ -38,7 +38,7 @@ namespace CustomDeploy.Models
         /// <summary>
         /// Comando de build (do arquivo de metadados)
         /// </summary>
-        public string? BuildCommand { get; set; }
+        public string[]? BuildCommand { get; set; }
 
         /// <summary>
         /// Diretório de saída do build (do arquivo de metadados)

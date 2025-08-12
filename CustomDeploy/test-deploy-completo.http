@@ -1,5 +1,5 @@
 ### Login para obter token
-POST {{baseUrl}}/api/auth/login
+POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
 {
@@ -10,7 +10,7 @@ Content-Type: application/json
 ###
 
 ### Criar Deploy Simples (apenas banco)
-POST {{baseUrl}}/api/deploys
+POST {{baseUrl}}/deploys
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
@@ -33,7 +33,7 @@ Authorization: Bearer {{token}}
 ###
 
 ### Executar Deploy Completo (IIS + banco)
-POST {{baseUrl}}/api/deploys/executar
+POST {{baseUrl}}/deploys/executar
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
@@ -54,19 +54,19 @@ Authorization: Bearer {{token}}
 ###
 
 ### Listar todos os deploys
-GET {{baseUrl}}/api/deploys
+GET {{baseUrl}}/deploys
 Authorization: Bearer {{token}}
 
 ###
 
 ### Obter deploy específico
-GET {{baseUrl}}/api/deploys/1
+GET {{baseUrl}}/deploys/1
 Authorization: Bearer {{token}}
 
 ###
 
 ### Atualizar status do deploy
-PUT {{baseUrl}}/api/deploys/1/status
+PUT {{baseUrl}}/deploys/1/status
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
@@ -78,7 +78,7 @@ Authorization: Bearer {{token}}
 ###
 
 ### Obter histórico do deploy
-GET {{baseUrl}}/api/deploys/1/historico
+GET {{baseUrl}}/deploys/1/historico
 Authorization: Bearer {{token}}
 
 ###

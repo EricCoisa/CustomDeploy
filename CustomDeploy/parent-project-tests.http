@@ -90,5 +90,5 @@ Authorization: Bearer {{auth_token}}
 ###
 
 # Obter metadados de deploy específico
-GET https://localhost:7071/deploy/publications/projeto-pai-api/metadata
+GET https://localhost:7071/deploy/publications/projeto-pai-metadata
 Authorization: Bearer {{auth_token}}

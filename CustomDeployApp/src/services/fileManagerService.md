@@ -3,7 +3,7 @@
 ## Mudanças Realizadas
 
 ### 🔧 Correções de URL
-- **Antes**: `/api/FileManager`
+- **Antes**: `/FileManager`
 - **Depois**: `/FileManager`
 - **Motivo**: Refletir a rota correta definida no controller `[Route("[controller]")]`
 

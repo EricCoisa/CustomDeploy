@@ -7,8 +7,8 @@ Esta implementação integra o sistema de deploy existente (IIS) com a nova pers
 ## Arquitetura
 
 ### 1. Dual Deploy System
-- **Deploy Simples**: Apenas cria registros no banco (endpoint `/api/deploys`)
-- **Deploy Completo**: Executa deploy no IIS + salva no banco (endpoint `/api/deploys/executar`)
+- **Deploy Simples**: Apenas cria registros no banco (endpoint `/deploys`)
+- **Deploy Completo**: Executa deploy no IIS + salva no banco (endpoint `/deploys/executar`)
 
 ### 2. Componentes Principais
 
@@ -64,7 +64,7 @@ public async Task<ActionResult<DeployResponse>> ExecutarDeploy(CriarDeployComple
 
 ### 3. Fluxo de Execução
 
-1. **Cliente** faz POST para `/api/deploys/executar` com dados do deploy
+1. **Cliente** faz POST para `/deploys/executar` com dados do deploy
 2. **Controller** converte `CriarDeployCompletoRequest` para `DeployRequest` (formato legacy)
 3. **Business Service** cria registro inicial no banco com status "Iniciado"
 4. **Legacy Service** executa o deploy real no IIS via `ExecuteDeployAsync`
@@ -75,12 +75,12 @@ public async Task<ActionResult<DeployResponse>> ExecutarDeploy(CriarDeployComple
 
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| POST | `/api/deploys` | Criar deploy simples (apenas banco) |
-| POST | `/api/deploys/executar` | Executar deploy completo (IIS + banco) |
-| GET | `/api/deploys` | Listar todos os deploys |
-| GET | `/api/deploys/{id}` | Obter deploy específico |
-| PUT | `/api/deploys/{id}/status` | Atualizar status do deploy |
-| GET | `/api/deploys/{id}/historico` | Obter histórico do deploy |
+| POST | `/deploys` | Criar deploy simples (apenas banco) |
+| POST | `/deploys/executar` | Executar deploy completo (IIS + banco) |
+| GET | `/deploys` | Listar todos os deploys |
+| GET | `/deploys/{id}` | Obter deploy específico |
+| PUT | `/deploys/{id}/status` | Atualizar status do deploy |
+| GET | `/deploys/{id}/historico` | Obter histórico do deploy |
 
 ### 5. Dependências Configuradas
 
@@ -110,7 +110,7 @@ builder.Services.AddScoped<DeployService>(); // Legacy service
 
 ```json
 // Deploy completo
-POST /api/deploys/executar
+POST /deploys/executar
 {
   "repoUrl": "https://github.com/usuario/projeto.git",
   "branch": "main",

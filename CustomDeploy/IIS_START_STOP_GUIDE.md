@@ -24,22 +24,22 @@ Este documento descreve os novos métodos adicionados ao `IISController` para pe
 
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| `POST` | `/api/iis/sites/{siteName}/start` | Inicia um site |
-| `POST` | `/api/iis/sites/{siteName}/stop` | Para um site |
+| `POST` | `/iis/sites/{siteName}/start` | Inicia um site |
+| `POST` | `/iis/sites/{siteName}/stop` | Para um site |
 
 ### Application Pools
 
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| `POST` | `/api/iis/app-pools/{poolName}/start` | Inicia um pool |
-| `POST` | `/api/iis/app-pools/{poolName}/stop` | Para um pool |
+| `POST` | `/iis/app-pools/{poolName}/start` | Inicia um pool |
+| `POST` | `/iis/app-pools/{poolName}/stop` | Para um pool |
 
 ### Applications
 
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| `POST` | `/api/iis/sites/{siteName}/applications/start/{*appPath}` | Inicia uma aplicação |
-| `POST` | `/api/iis/sites/{siteName}/applications/stop/{*appPath}` | Para uma aplicação |
+| `POST` | `/iis/sites/{siteName}/applications/start/{*appPath}` | Inicia uma aplicação |
+| `POST` | `/iis/sites/{siteName}/applications/stop/{*appPath}` | Para uma aplicação |
 
 ## 🔧 Implementação Técnica
 
@@ -109,19 +109,19 @@ Content-Type: application/json
 
 ### 1. Iniciar um Site
 ```http
-POST http://localhost:5092/api/iis/sites/Default Web Site/start
+POST http://localhost:5092/iis/sites/Default Web Site/start
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 
 ### 2. Parar um Application Pool
 ```http
-POST http://localhost:5092/api/iis/app-pools/DefaultAppPool/stop
+POST http://localhost:5092/iis/app-pools/DefaultAppPool/stop
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 
 ### 3. Iniciar uma Aplicação
 ```http
-POST http://localhost:5092/api/iis/sites/MeuSite/applications/start/api/v1
+POST http://localhost:5092/iis/sites/MeuSite/applications/start/v1
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 

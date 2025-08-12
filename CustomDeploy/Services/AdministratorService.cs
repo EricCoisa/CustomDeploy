@@ -125,7 +125,7 @@ namespace CustomDeploy.Services
                 _logger.LogWarning("ATENÇÃO: Para gerenciar IIS é necessário privilégios de administrador");
                 _logger.LogInformation("A aplicação atual não possui privilégios de administrador");
                 
-                return (false, "Para utilizar funcionalidades IIS, é necessário executar a aplicação como Administrador. Use o endpoint /api/iis/request-admin para reiniciar automaticamente ou execute manualmente como administrador.");
+                return (false, "Para utilizar funcionalidades IIS, é necessário executar a aplicação como Administrador. Use o endpoint /iis/request-admin para reiniciar automaticamente ou execute manualmente como administrador.");
             }
             catch (Exception ex)
             {
@@ -151,7 +151,7 @@ namespace CustomDeploy.Services
                 instructions.Add("🔐 Para executar como Administrador:");
                 instructions.Add("");
                 instructions.Add("📋 Método 1 - Reiniciar Automaticamente:");
-                instructions.Add("• Use o endpoint POST /api/iis/request-admin para reiniciar automaticamente");
+                instructions.Add("• Use o endpoint POST /iis/request-admin para reiniciar automaticamente");
                 instructions.Add("• A aplicação solicitará permissões UAC e reiniciará");
                 instructions.Add("");
                 instructions.Add("📋 Método 2 - Manual:");

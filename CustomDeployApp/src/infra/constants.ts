@@ -25,14 +25,14 @@ export const API_ENDPOINTS = {
   
   // Sistema (antigo Deploy Controller)
   SYSTEM: {
-    LIST: '/api/system',
-    CREATE: '/api/system',
-    DETAIL: (id: string) => `/api/system/${id}`,
-    STATUS: (id: string) => `/api/system/${id}/status`,
-    LOGS: (id: string) => `/api/system/${id}/logs`,
-    CREDENTIALS_STATUS: '/api/system/credentials/status',
-    CREDENTIALS_TEST: '/api/system/credentials/test',
-    REPOSITORY_VALIDATE: '/api/system/repository/validate',
+    LIST: '/system',
+    CREATE: '/system',
+    DETAIL: (id: string) => `/system/${id}`,
+    STATUS: (id: string) => `/system/${id}/status`,
+    LOGS: (id: string) => `/system/${id}/logs`,
+    CREDENTIALS_STATUS: '/system/credentials/status',
+    CREDENTIALS_TEST: '/system/credentials/test',
+    REPOSITORY_VALIDATE: '/system/repository/validate',
   },
   
   // IIS (exemplo para o projeto CustomDeploy)

@@ -90,10 +90,10 @@ const [selectedPath, setSelectedPath] = useState('');
 O componente usa o `fileManagerService` que se comunica com:
 
 ### Endpoints Utilizados
-- `GET /api/FileManager` - Lista conteúdo do diretório
-- `GET /api/FileManager/item` - Informações de item específico
-- `GET /api/FileManager/drives` - Drives disponíveis
-- `GET /api/FileManager/validate` - Validação de caminho
+- `GET /FileManager` - Lista conteúdo do diretório
+- `GET /FileManager/item` - Informações de item específico
+- `GET /FileManager/drives` - Drives disponíveis
+- `GET /FileManager/validate` - Validação de caminho
 
 ### Tipos de Arquivo Suportados
 O serviço detecta automaticamente e aplica ícones para:

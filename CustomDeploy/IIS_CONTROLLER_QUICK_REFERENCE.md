@@ -14,11 +14,11 @@ POST /auth/login
 
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| `GET` | `/api/iis/sites` | Listar todos os sites |
-| `GET` | `/api/iis/sites/{siteName}` | Obter detalhes de um site |
-| `POST` | `/api/iis/sites` | Criar novo site |
-| `PUT` | `/api/iis/sites/{siteName}` | Atualizar site |
-| `DELETE` | `/api/iis/sites/{siteName}` | Deletar site |
+| `GET` | `/iis/sites` | Listar todos os sites |
+| `GET` | `/iis/sites/{siteName}` | Obter detalhes de um site |
+| `POST` | `/iis/sites` | Criar novo site |
+| `PUT` | `/iis/sites/{siteName}` | Atualizar site |
+| `DELETE` | `/iis/sites/{siteName}` | Deletar site |
 
 ### Criar Site
 ```json
@@ -34,10 +34,10 @@ POST /auth/login
 
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| `GET` | `/api/iis/sites/{siteName}/applications` | Listar aplicações do site |
-| `POST` | `/api/iis/applications` | Criar nova aplicação |
-| `PUT` | `/api/iis/sites/{siteName}/applications/{appPath}` | Atualizar aplicação |
-| `DELETE` | `/api/iis/sites/{siteName}/applications/{appPath}` | Deletar aplicação |
+| `GET` | `/iis/sites/{siteName}/applications` | Listar aplicações do site |
+| `POST` | `/iis/applications` | Criar nova aplicação |
+| `PUT` | `/iis/sites/{siteName}/applications/{appPath}` | Atualizar aplicação |
+| `DELETE` | `/iis/sites/{siteName}/applications/{appPath}` | Deletar aplicação |
 
 ### Criar Aplicação
 ```json
@@ -53,14 +53,14 @@ POST /auth/login
 
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| `GET` | `/api/iis/app-pools` | Listar todos os pools |
-| `GET` | `/api/iis/app-pools/{poolName}` | Obter detalhes de um pool |
-| `POST` | `/api/iis/app-pools` | Criar novo pool |
-| `PUT` | `/api/iis/app-pools/{poolName}` | Atualizar pool |
-| `DELETE` | `/api/iis/app-pools/{poolName}` | Deletar pool |
-| `POST` | `/api/iis/app-pools/{poolName}/start` | Iniciar pool |
-| `POST` | `/api/iis/app-pools/{poolName}/stop` | Parar pool |
-| `POST` | `/api/iis/app-pools/{poolName}/recycle` | Reciclar pool |
+| `GET` | `/iis/app-pools` | Listar todos os pools |
+| `GET` | `/iis/app-pools/{poolName}` | Obter detalhes de um pool |
+| `POST` | `/iis/app-pools` | Criar novo pool |
+| `PUT` | `/iis/app-pools/{poolName}` | Atualizar pool |
+| `DELETE` | `/iis/app-pools/{poolName}` | Deletar pool |
+| `POST` | `/iis/app-pools/{poolName}/start` | Iniciar pool |
+| `POST` | `/iis/app-pools/{poolName}/stop` | Parar pool |
+| `POST` | `/iis/app-pools/{poolName}/recycle` | Reciclar pool |
 
 ### Criar Application Pool
 ```json
@@ -75,8 +75,8 @@ POST /auth/login
 
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| `GET` | `/api/iis/admin-status` | Status de administrador |
-| `GET` | `/api/iis/permissions` | Verificar permissões IIS |
+| `GET` | `/iis/admin-status` | Status de administrador |
+| `GET` | `/iis/permissions` | Verificar permissões IIS |
 
 ## 📊 Códigos de Status
 
@@ -105,7 +105,7 @@ curl -X POST "http://localhost:5092/auth/login" \
   -d '{"username":"admin","password":"password"}'
 
 # 2. Criar Site
-curl -X POST "http://localhost:5092/api/iis/sites" \
+curl -X POST "http://localhost:5092/iis/sites" \
   -H "Authorization: Bearer {token}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -116,7 +116,7 @@ curl -X POST "http://localhost:5092/api/iis/sites" \
   }'
 
 # 3. Criar Aplicação
-curl -X POST "http://localhost:5092/api/iis/applications" \
+curl -X POST "http://localhost:5092/iis/applications" \
   -H "Authorization: Bearer {token}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -127,7 +127,7 @@ curl -X POST "http://localhost:5092/api/iis/applications" \
   }'
 
 # 4. Listar Sites
-curl -X GET "http://localhost:5092/api/iis/sites" \
+curl -X GET "http://localhost:5092/iis/sites" \
   -H "Authorization: Bearer {token}"
 ```
 

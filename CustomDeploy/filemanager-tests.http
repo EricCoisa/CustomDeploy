@@ -19,115 +19,115 @@ Content-Type: application/json
 ### 2. SISTEMA DE ARQUIVOS - Navegação Básica
 
 ### 2.1 Navegar na raiz do sistema (C:\)
-GET http://localhost:5092/api/filemanager
+GET http://localhost:5092/filemanager
 Authorization: Bearer {token_aqui}
 
 ### 2.2 Navegar em um diretório específico
-GET http://localhost:5092/api/filemanager?path=C:\inetpub
+GET http://localhost:5092/filemanager?path=C:\inetpub
 Authorization: Bearer {token_aqui}
 
 ### 2.3 Navegar com filtros e ordenação
-GET http://localhost:5092/api/filemanager?path=C:\inetpub\wwwroot&includeHidden=true&sortBy=size&ascending=false
+GET http://localhost:5092/filemanager?path=C:\inetpub\wwwroot&includeHidden=true&sortBy=size&ascending=false
 Authorization: Bearer {token_aqui}
 
 ### 2.4 Filtrar apenas arquivos .txt
-GET http://localhost:5092/api/filemanager?path=C:\&fileExtensionFilter=.txt
+GET http://localhost:5092/filemanager?path=C:\&fileExtensionFilter=.txt
 Authorization: Bearer {token_aqui}
 
 ### 2.5 Ordenar por data de modificação
-GET http://localhost:5092/api/filemanager?path=C:\&sortBy=date&ascending=false
+GET http://localhost:5092/filemanager?path=C:\&sortBy=date&ascending=false
 Authorization: Bearer {token_aqui}
 
 ##################################################
 ### 3. INFORMAÇÕES DE ITENS ESPECÍFICOS
 
 ### 3.1 Obter informações de um arquivo específico
-GET http://localhost:5092/api/filemanager/item?path=C:\Windows\System.ini
+GET http://localhost:5092/filemanager/item?path=C:\Windows\System.ini
 Authorization: Bearer {token_aqui}
 
 ### 3.2 Obter informações de um diretório específico
-GET http://localhost:5092/api/filemanager/item?path=C:\Program Files
+GET http://localhost:5092/filemanager/item?path=C:\Program Files
 Authorization: Bearer {token_aqui}
 
 ##################################################
 ### 4. UNIDADES DE DISCO
 
 ### 4.1 Listar todas as unidades de disco disponíveis
-GET http://localhost:5092/api/filemanager/drives
+GET http://localhost:5092/filemanager/drives
 Authorization: Bearer {token_aqui}
 
 ##################################################
 ### 5. VALIDAÇÃO DE CAMINHOS
 
 ### 5.1 Validar caminho válido
-GET http://localhost:5092/api/filemanager/validate?path=C:\inetpub
+GET http://localhost:5092/filemanager/validate?path=C:\inetpub
 Authorization: Bearer {token_aqui}
 
 ### 5.2 Validar caminho inválido
-GET http://localhost:5092/api/filemanager/validate?path=C:\caminho_inexistente
+GET http://localhost:5092/filemanager/validate?path=C:\caminho_inexistente
 Authorization: Bearer {token_aqui}
 
 ### 5.3 Validar caminho bloqueado (deve retornar isBlocked=true)
-GET http://localhost:5092/api/filemanager/validate?path=C:\Windows\System32
+GET http://localhost:5092/filemanager/validate?path=C:\Windows\System32
 Authorization: Bearer {token_aqui}
 
 ##################################################
 ### 6. INFORMAÇÕES DO SISTEMA
 
 ### 6.1 Obter informações gerais do sistema
-GET http://localhost:5092/api/filemanager/system-info
+GET http://localhost:5092/filemanager/system-info
 Authorization: Bearer {token_aqui}
 
 ##################################################
 ### 7. TESTES DE SEGURANÇA E VALIDAÇÃO
 
 ### 7.1 Tentar acessar diretório bloqueado (deve retornar erro)
-GET http://localhost:5092/api/filemanager?path=C:\Windows\System32
+GET http://localhost:5092/filemanager?path=C:\Windows\System32
 Authorization: Bearer {token_aqui}
 
 ### 7.2 Tentar acessar sem autenticação (deve retornar 401)
-GET http://localhost:5092/api/filemanager
+GET http://localhost:5092/filemanager
 
 ### 7.3 Validar sem parâmetro path (deve retornar erro)
-GET http://localhost:5092/api/filemanager/validate
+GET http://localhost:5092/filemanager/validate
 Authorization: Bearer {token_aqui}
 
 ### 7.4 Obter informações de item sem parâmetro path (deve retornar erro)
-GET http://localhost:5092/api/filemanager/item
+GET http://localhost:5092/filemanager/item
 Authorization: Bearer {token_aqui}
 
 ##################################################
 ### 8. CENÁRIOS DE USO REAL
 
 ### 8.1 Navegar na pasta do IIS (wwwroot)
-GET http://localhost:5092/api/filemanager?path=C:\inetpub\wwwroot
+GET http://localhost:5092/filemanager?path=C:\inetpub\wwwroot
 Authorization: Bearer {token_aqui}
 
 ### 8.2 Navegar na pasta de usuários
-GET http://localhost:5092/api/filemanager?path=C:\Users
+GET http://localhost:5092/filemanager?path=C:\Users
 Authorization: Bearer {token_aqui}
 
 ### 8.3 Navegar na pasta de arquivos de programa
-GET http://localhost:5092/api/filemanager?path=C:\Program Files
+GET http://localhost:5092/filemanager?path=C:\Program Files
 Authorization: Bearer {token_aqui}
 
 ### 8.4 Buscar arquivos de log
-GET http://localhost:5092/api/filemanager?path=C:\&fileExtensionFilter=.log&sortBy=date&ascending=false
+GET http://localhost:5092/filemanager?path=C:\&fileExtensionFilter=.log&sortBy=date&ascending=false
 Authorization: Bearer {token_aqui}
 
 ### 8.5 Buscar arquivos de configuração
-GET http://localhost:5092/api/filemanager?path=C:\&fileExtensionFilter=.config&sortBy=name
+GET http://localhost:5092/filemanager?path=C:\&fileExtensionFilter=.config&sortBy=name
 Authorization: Bearer {token_aqui}
 
 ##################################################
 ### 9. TESTES DE PERFORMANCE E LIMITES
 
 ### 9.1 Navegar em diretório com muitos arquivos
-GET http://localhost:5092/api/filemanager?path=C:\Windows&includeHidden=true
+GET http://localhost:5092/filemanager?path=C:\Windows&includeHidden=true
 Authorization: Bearer {token_aqui}
 
 ### 9.2 Teste com caminho muito longo
-GET http://localhost:5092/api/filemanager?path=C:\Program Files\WindowsApps
+GET http://localhost:5092/filemanager?path=C:\Program Files\WindowsApps
 Authorization: Bearer {token_aqui}
 
 ##################################################

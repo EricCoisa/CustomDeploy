@@ -87,7 +87,7 @@ Content-Type: application/json
     "branch": "main",
     "buildCommand": "echo 'Build very deep'",
     "buildOutput": ".",
-    "targetPath": "microservices/payment/api/v2"
+    "targetPath": "microservices/payment/v2"
 }
 
 ###

@@ -14,19 +14,22 @@ namespace CustomDeploy.Services.Business
         private readonly CustomDeployDbContext _context;
         private readonly DeployService _legacyDeployService; // Serviço original
         private readonly ILogger<DeployBusinessService> _logger;
+        private readonly GitHubService _gitHubService; // Adicionado o GitHubService
 
         public DeployBusinessService(
             IDeployRepository deployRepository,
             IUsuarioRepository usuarioRepository,
             CustomDeployDbContext context,
             DeployService legacyDeployService,
-            ILogger<DeployBusinessService> logger)
+            ILogger<DeployBusinessService> logger,
+            GitHubService gitHubService) // Injetado o GitHubService
         {
             _deployRepository = deployRepository;
             _usuarioRepository = usuarioRepository;
             _context = context;
             _legacyDeployService = legacyDeployService;
             _logger = logger;
+            _gitHubService = gitHubService; // Atribuído o GitHubService
         }
 
         public async Task<Deploy> CriarDeployAsync(string siteName, string? applicationName, int usuarioId, 
@@ -285,18 +288,18 @@ namespace CustomDeploy.Services.Business
                 await _deployRepository.AddAsync(deploy);
                 await _deployRepository.SaveChangesAsync();
 
-                // 4. Adicionar comandos do deploy (baseado no BuildCommands do request)
-                var comandosBase = new List<string>
+                // 4. Clonar ou atualizar o repositório
+                // Determinar o nome do repositório a partir da URL
+                var repoName = GetRepoNameFromUrl(deployRequest.RepoUrl);
+                string workingDirectory = Path.Combine(Path.GetTempPath(), repoName);
+                var cloneResult = await CloneOrUpdateRepositoryAsync(deployRequest.RepoUrl, deployRequest.Branch, workingDirectory);
+                if (!cloneResult.Success)
                 {
-                    $"git clone {deployRequest.RepoUrl}",
-                    $"git checkout {deployRequest.Branch}"
-                };
-
-                // Adicionar os comandos de build fornecidos no request
-                if (deployRequest.BuildCommands != null && deployRequest.BuildCommands.Length > 0)
-                {
-                    comandosBase.AddRange(deployRequest.BuildCommands);
+                    throw new InvalidOperationException($"Erro ao clonar ou atualizar o repositório: {cloneResult.Message}");
                 }
+
+                // 5. Adicionar comandos do deploy (baseado no BuildCommands do request)
+                var comandosBase = new List<string>(deployRequest.BuildCommands ?? Array.Empty<string>());
 
                 // Salvar todos os comandos primeiro
                 for (int i = 0; i < comandosBase.Count; i++)
@@ -313,7 +316,7 @@ namespace CustomDeploy.Services.Business
                     _context.DeployComandos.Add(comando);
                 }
 
-                // 5. Adicionar histórico inicial
+                // 6. Adicionar histórico inicial
                 var historicoInicial = new DeployHistorico
                 {
                     DeployId = deploy.Id,
@@ -325,7 +328,7 @@ namespace CustomDeploy.Services.Business
                 _context.DeployHistoricos.Add(historicoInicial);
                 await _context.SaveChangesAsync();
 
-                // 6. Executar comandos individualmente
+                // 7. Executar comandos individualmente
                 bool deploySuccess = true;
                 string deployMessage = "";
                 
@@ -337,7 +340,7 @@ namespace CustomDeploy.Services.Business
                     {
                         deployMessage = "Todos os comandos executados com sucesso";
                         
-                        // 7. Executar a parte de cópia de arquivos usando o serviço legacy
+                        // 8. Executar a parte de cópia de arquivos usando o serviço legacy
                         var copyResult = await _legacyDeployService.ExecuteDeployAsync(deployRequest);
                         if (!copyResult.Success)
                         {
@@ -361,14 +364,14 @@ namespace CustomDeploy.Services.Business
                     _logger.LogError(ex, "Erro durante execução dos comandos do deploy {DeployId}", deploy.Id);
                 }
 
-                // 8. Atualizar status final baseado no resultado
+                // 9. Atualizar status final baseado no resultado
                 string novoStatus = deploySuccess ? "Sucesso" : "Falha";
                 
                 deploy.Status = novoStatus;
                 deploy.Mensagem = deployMessage;
                 await _deployRepository.UpdateAsync(deploy);
 
-                // 9. Adicionar histórico final
+                // 10. Adicionar histórico final
                 var historicoFinal = new DeployHistorico
                 {
                     DeployId = deploy.Id,
@@ -397,13 +400,11 @@ namespace CustomDeploy.Services.Business
 
         private async Task<bool> ExecutarComandosIndividualmenteAsync(int deployId, List<string> comandos, DeployRequest deployRequest)
         {
-            string workingDirectory = Path.Combine(Path.GetTempPath(), $"deploy_{deployId}_{DateTime.Now:yyyyMMddHHmmss}");
+            // Usar o diretório do repositório clonado como diretório de trabalho
+            string workingDirectory = Path.Combine(Path.GetTempPath(), GetRepoNameFromUrl(deployRequest.RepoUrl));
             
             try
             {
-                // Criar diretório de trabalho
-                Directory.CreateDirectory(workingDirectory);
-                
                 _logger.LogInformation("Iniciando execução individual de comandos para deploy {DeployId} em {WorkingDir}", 
                     deployId, workingDirectory);
 
@@ -682,6 +683,159 @@ namespace CustomDeploy.Services.Business
                 _logger.LogError(ex, "Erro ao excluir deploy: {Id}", id);
                 throw;
             }
+        }
+
+        public async Task<(bool Success, string Message)> ValidateRepositoryAsync(string repoUrl)
+        {
+            var result = await _gitHubService.ValidateRepositoryAsync(repoUrl);
+            return (result.Success, result.Message);
+        }
+
+        public async Task<(bool Success, string Message)> ValidateBranchAsync(string repoUrl, string branch)
+        {
+            var result = await _gitHubService.ValidateBranchAsync(repoUrl, branch);
+            return (result.Success, result.Message);
+        }
+
+        // public async Task<(bool Success, string Message)> CloneRepositoryAsync(string repoUrl, string branch, string targetPath)
+        // {
+        //     var result = await _gitHubService.TryCloneWithFallbackAsync(repoUrl, branch, targetPath);
+        //     return (result.Success, result.Message);
+        // }
+
+        public async Task<(bool Success, string Message)> CloneOrUpdateRepositoryAsync(string repoUrl, string branch, string repoPath)
+        {
+            try
+            {
+                // Validar repositório primeiro
+                var validationResult = await _gitHubService.ValidateRepositoryAsync(repoUrl);
+                if (!validationResult.Success)
+                {
+                    _logger.LogWarning("Validação do repositório falhou: {Message}", validationResult.Message);
+                    // Continuar mesmo assim para compatibilidade com repos não-GitHub ou credenciais de sistema
+                }
+                else
+                {
+                    _logger.LogInformation("Repositório validado: {Message}", validationResult.Message);
+                }
+
+                // Gerar URL autenticada se necessário
+                var authenticatedUrl = _gitHubService.GenerateAuthenticatedCloneUrl(repoUrl);
+
+                if (Directory.Exists(repoPath))
+                {
+                    // Verificar se a pasta não está vazia
+                    if (Directory.EnumerateFileSystemEntries(repoPath).Any())
+                    {
+                        _logger.LogInformation("Repositório já existe e não está vazio, atualizando: {RepoPath}", repoPath);
+
+                        // Checkout da branch e pull
+                        var checkoutResult = await RunGitCommandAsync($"checkout {branch}", repoPath);
+                        if (!checkoutResult.Success)
+                        {
+                            return (false, $"Falha no checkout: {checkoutResult.Message}");
+                        }
+
+                        var pullResult = await RunGitCommandAsync("pull", repoPath);
+                        if (!pullResult.Success)
+                        {
+                            return (false, $"Falha no pull: {pullResult.Message}");
+                        }
+
+                        return (true, "Repositório atualizado com sucesso");
+                    }
+                    else
+                    {
+                        _logger.LogWarning("A pasta do repositório existe, mas está vazia: {RepoPath}", repoPath);
+                    }
+                }
+
+                _logger.LogInformation("🚀 Clonando repositório com fallback inteligente: {RepoUrl}", repoUrl);
+                
+                // Usar o novo método de clone com fallback
+                var cloneResult = await _gitHubService.TryCloneWithFallbackAsync(repoUrl, branch, repoPath);
+                if (!cloneResult.Success)
+                {
+                    return (false, $"Falha no clone: {cloneResult.Message}");
+                }
+
+                var authMethod = cloneResult.UsedSystemCredentials ? "credenciais do sistema" : "credenciais explícitas";
+                _logger.LogInformation("✅ Clone realizado com sucesso usando {AuthMethod}", authMethod);
+                return (true, $"Repositório clonado com sucesso usando {authMethod}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro durante operação Git");
+                return (false, ex.Message);
+            }
+        }
+
+        private async Task<(bool Success, string Message)> RunGitCommandAsync(string arguments, string workingDirectory)
+        {
+            var processInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "git",
+                Arguments = arguments,
+                WorkingDirectory = workingDirectory,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = new System.Diagnostics.Process { StartInfo = processInfo };
+            
+            var outputBuilder = new System.Text.StringBuilder();
+            var errorBuilder = new System.Text.StringBuilder();
+
+            process.OutputDataReceived += (sender, args) =>
+            {
+                if (args.Data != null)
+                {
+                    outputBuilder.AppendLine(args.Data);
+                }
+            };
+
+            process.ErrorDataReceived += (sender, args) =>
+            {
+                if (args.Data != null)
+                {
+                    errorBuilder.AppendLine(args.Data);
+                }
+            };
+
+            process.Start();
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+
+            await process.WaitForExitAsync();
+
+            var output = outputBuilder.ToString();
+            var error = errorBuilder.ToString();
+
+            if (process.ExitCode == 0)
+            {
+                return (true, output);
+            }
+            else
+            {
+                var errorMessage = !string.IsNullOrEmpty(error) ? error : output;
+                return (false, errorMessage);
+            }
+        }
+
+        private string GetRepoNameFromUrl(string repoUrl)
+        {
+            // Extrair nome do repositório da URL
+            var uri = new Uri(repoUrl);
+            var segments = uri.Segments;
+            var lastSegment = segments[segments.Length - 1];
+            
+            // Remover .git se existir
+            if (lastSegment.EndsWith(".git"))
+                lastSegment = lastSegment.Substring(0, lastSegment.Length - 4);
+            
+            return lastSegment;
         }
     }
 }

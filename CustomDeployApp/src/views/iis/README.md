@@ -111,16 +111,16 @@ src/
 
 A interface consome os endpoints do `IISController`:
 
-- `GET /api/iis/request-permissions` - Verificar permissões
-- `GET /api/iis/admin-status` - Status de administrador
-- `POST /api/iis/request-admin` - Solicitar privilégios
-- `GET /api/iis/sites` - Listar sites
-- `POST /api/iis/sites` - Criar site
-- `PUT /api/iis/sites/{siteName}` - Atualizar site
-- `DELETE /api/iis/sites/{siteName}` - Excluir site
-- `GET /api/iis/sites/{siteName}/applications` - Listar aplicações
-- `POST /api/iis/applications` - Criar aplicação
-- `DELETE /api/iis/sites/{siteName}/applications/{appPath}` - Excluir aplicação
-- `GET /api/iis/app-pools` - Listar app pools
-- `POST /api/iis/app-pools` - Criar app pool
-- `DELETE /api/iis/app-pools/{poolName}` - Excluir app pool
+- `GET /iis/request-permissions` - Verificar permissões
+- `GET /iis/admin-status` - Status de administrador
+- `POST /iis/request-admin` - Solicitar privilégios
+- `GET /iis/sites` - Listar sites
+- `POST /iis/sites` - Criar site
+- `PUT /iis/sites/{siteName}` - Atualizar site
+- `DELETE /iis/sites/{siteName}` - Excluir site
+- `GET /iis/sites/{siteName}/applications` - Listar aplicações
+- `POST /iis/applications` - Criar aplicação
+- `DELETE /iis/sites/{siteName}/applications/{appPath}` - Excluir aplicação
+- `GET /iis/app-pools` - Listar app pools
+- `POST /iis/app-pools` - Criar app pool
+- `DELETE /iis/app-pools/{poolName}` - Excluir app pool

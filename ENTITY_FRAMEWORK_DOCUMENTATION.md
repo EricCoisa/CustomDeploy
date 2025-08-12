@@ -136,7 +136,7 @@ Content-Type: application/json
 
 #### Criar Usuário
 ```http
-POST /api/usuarios
+POST /usuarios
 Authorization: Bearer {token}
 Content-Type: application/json
 
@@ -150,19 +150,19 @@ Content-Type: application/json
 
 #### Listar Usuários
 ```http
-GET /api/usuarios
+GET /usuarios
 Authorization: Bearer {token}
 ```
 
 #### Obter Usuário por ID
 ```http
-GET /api/usuarios/{id}
+GET /usuarios/{id}
 Authorization: Bearer {token}
 ```
 
 #### Atualizar Usuário
 ```http
-PUT /api/usuarios/{id}
+PUT /usuarios/{id}
 Authorization: Bearer {token}
 Content-Type: application/json
 
@@ -176,7 +176,7 @@ Content-Type: application/json
 
 #### Criar Deploy
 ```http
-POST /api/deploys
+POST /deploys
 Authorization: Bearer {token}
 Content-Type: application/json
 
@@ -194,19 +194,19 @@ Content-Type: application/json
 
 #### Listar Deploys
 ```http
-GET /api/deploys
+GET /deploys
 Authorization: Bearer {token}
 ```
 
 #### Obter Deploy Completo
 ```http
-GET /api/deploys/{id}
+GET /deploys/{id}
 Authorization: Bearer {token}
 ```
 
 #### Atualizar Status do Deploy
 ```http
-PUT /api/deploys/{id}/status
+PUT /deploys/{id}/status
 Authorization: Bearer {token}
 Content-Type: application/json
 

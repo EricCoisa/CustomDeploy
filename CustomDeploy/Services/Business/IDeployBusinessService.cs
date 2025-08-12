@@ -20,5 +20,8 @@ namespace CustomDeploy.Services.Business
         Task<IEnumerable<DeployHistorico>> ObterHistoricoDeployAsync(int deployId);
         Task<IEnumerable<DeployComando>> ObterComandosDeployAsync(int deployId);
         Task<bool> ExcluirDeployAsync(int id);
+        Task<(bool Success, string Message)> ValidateRepositoryAsync(string repoUrl);
+        Task<(bool Success, string Message)> ValidateBranchAsync(string repoUrl, string branch);
+        // Task<(bool Success, string Message)> CloneRepositoryAsync(string repoUrl, string branch, string targetPath);
     }
 }

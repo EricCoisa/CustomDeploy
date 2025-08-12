@@ -53,7 +53,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 Verifica se o usuário atual possui privilégios de administrador.
 
 ```http
-GET /api/iis/admin-status
+GET /iis/admin-status
 Authorization: Bearer {token}
 ```
 
@@ -78,7 +78,7 @@ Authorization: Bearer {token}
 Verifica permissões específicas para operações IIS.
 
 ```http
-GET /api/iis/permissions
+GET /iis/permissions
 Authorization: Bearer {token}
 ```
 
@@ -105,7 +105,7 @@ Authorization: Bearer {token}
 ### Listar Todos os Sites
 
 ```http
-GET /api/iis/sites
+GET /iis/sites
 Authorization: Bearer {token}
 ```
 
@@ -139,20 +139,20 @@ Authorization: Bearer {token}
 ### Obter Detalhes de um Site
 
 ```http
-GET /api/iis/sites/{siteName}
+GET /iis/sites/{siteName}
 Authorization: Bearer {token}
 ```
 
 **Exemplo:**
 ```http
-GET /api/iis/sites/Default Web Site
+GET /iis/sites/Default Web Site
 Authorization: Bearer {token}
 ```
 
 ### Criar Novo Site
 
 ```http
-POST /api/iis/sites
+POST /iis/sites
 Authorization: Bearer {token}
 Content-Type: application/json
 
@@ -182,7 +182,7 @@ Content-Type: application/json
 ### Atualizar Site Existente
 
 ```http
-PUT /api/iis/sites/{siteName}
+PUT /iis/sites/{siteName}
 Authorization: Bearer {token}
 Content-Type: application/json
 
@@ -193,7 +193,7 @@ Content-Type: application/json
 
 **Exemplo:**
 ```http
-PUT /api/iis/sites/MeuNovoSite
+PUT /iis/sites/MeuNovoSite
 Authorization: Bearer {token}
 Content-Type: application/json
 
@@ -205,13 +205,13 @@ Content-Type: application/json
 ### Deletar Site
 
 ```http
-DELETE /api/iis/sites/{siteName}
+DELETE /iis/sites/{siteName}
 Authorization: Bearer {token}
 ```
 
 **Exemplo:**
 ```http
-DELETE /api/iis/sites/MeuNovoSite
+DELETE /iis/sites/MeuNovoSite
 Authorization: Bearer {token}
 ```
 
@@ -230,13 +230,13 @@ Authorization: Bearer {token}
 ### Listar Aplicações de um Site
 
 ```http
-GET /api/iis/sites/{siteName}/applications
+GET /iis/sites/{siteName}/applications
 Authorization: Bearer {token}
 ```
 
 **Exemplo:**
 ```http
-GET /api/iis/sites/Default Web Site/applications
+GET /iis/sites/Default Web Site/applications
 Authorization: Bearer {token}
 ```
 
@@ -265,7 +265,7 @@ Authorization: Bearer {token}
 ### Criar Nova Aplicação
 
 ```http
-POST /api/iis/applications
+POST /iis/applications
 Authorization: Bearer {token}
 Content-Type: application/json
 
@@ -294,7 +294,7 @@ Content-Type: application/json
 ### Atualizar Aplicação
 
 ```http
-PUT /api/iis/sites/{siteName}/applications/{appPath}
+PUT /iis/sites/{siteName}/applications/{appPath}
 Authorization: Bearer {token}
 Content-Type: application/json
 
@@ -307,13 +307,13 @@ Content-Type: application/json
 ### Deletar Aplicação
 
 ```http
-DELETE /api/iis/sites/{siteName}/applications/{appPath}
+DELETE /iis/sites/{siteName}/applications/{appPath}
 Authorization: Bearer {token}
 ```
 
 **Exemplo:**
 ```http
-DELETE /api/iis/sites/Default Web Site/applications/minhaapp
+DELETE /iis/sites/Default Web Site/applications/minhaapp
 Authorization: Bearer {token}
 ```
 
@@ -332,7 +332,7 @@ Authorization: Bearer {token}
 ### Listar Todos os Application Pools
 
 ```http
-GET /api/iis/app-pools
+GET /iis/app-pools
 Authorization: Bearer {token}
 ```
 
@@ -359,20 +359,20 @@ Authorization: Bearer {token}
 ### Obter Detalhes de um Application Pool
 
 ```http
-GET /api/iis/app-pools/{poolName}
+GET /iis/app-pools/{poolName}
 Authorization: Bearer {token}
 ```
 
 **Exemplo:**
 ```http
-GET /api/iis/app-pools/DefaultAppPool
+GET /iis/app-pools/DefaultAppPool
 Authorization: Bearer {token}
 ```
 
 ### Criar Novo Application Pool
 
 ```http
-POST /api/iis/app-pools
+POST /iis/app-pools
 Authorization: Bearer {token}
 Content-Type: application/json
 
@@ -388,7 +388,7 @@ Content-Type: application/json
 ### Atualizar Application Pool
 
 ```http
-PUT /api/iis/app-pools/{poolName}
+PUT /iis/app-pools/{poolName}
 Authorization: Bearer {token}
 Content-Type: application/json
 
@@ -401,7 +401,7 @@ Content-Type: application/json
 ### Deletar Application Pool
 
 ```http
-DELETE /api/iis/app-pools/{poolName}
+DELETE /iis/app-pools/{poolName}
 Authorization: Bearer {token}
 ```
 
@@ -409,19 +409,19 @@ Authorization: Bearer {token}
 
 #### Iniciar Application Pool
 ```http
-POST /api/iis/app-pools/{poolName}/start
+POST /iis/app-pools/{poolName}/start
 Authorization: Bearer {token}
 ```
 
 #### Parar Application Pool
 ```http
-POST /api/iis/app-pools/{poolName}/stop
+POST /iis/app-pools/{poolName}/stop
 Authorization: Bearer {token}
 ```
 
 #### Reciclar Application Pool
 ```http
-POST /api/iis/app-pools/{poolName}/recycle
+POST /iis/app-pools/{poolName}/recycle
 Authorization: Bearer {token}
 ```
 
@@ -501,7 +501,7 @@ curl -X POST "http://localhost:5092/auth/login" \
   -d '{"username":"admin","password":"password"}'
 
 # 2. Criar o site
-curl -X POST "http://localhost:5092/api/iis/sites" \
+curl -X POST "http://localhost:5092/iis/sites" \
   -H "Authorization: Bearer {seu_token}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -512,7 +512,7 @@ curl -X POST "http://localhost:5092/api/iis/sites" \
   }'
 
 # 3. Criar uma aplicação no site
-curl -X POST "http://localhost:5092/api/iis/applications" \
+curl -X POST "http://localhost:5092/iis/applications" \
   -H "Authorization: Bearer {seu_token}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -527,15 +527,15 @@ curl -X POST "http://localhost:5092/api/iis/applications" \
 
 ```bash
 # Listar todos os pools
-curl -X GET "http://localhost:5092/api/iis/app-pools" \
+curl -X GET "http://localhost:5092/iis/app-pools" \
   -H "Authorization: Bearer {seu_token}"
 
 # Verificar detalhes de um pool específico
-curl -X GET "http://localhost:5092/api/iis/app-pools/DefaultAppPool" \
+curl -X GET "http://localhost:5092/iis/app-pools/DefaultAppPool" \
   -H "Authorization: Bearer {seu_token}"
 
 # Reciclar um pool se necessário
-curl -X POST "http://localhost:5092/api/iis/app-pools/DefaultAppPool/recycle" \
+curl -X POST "http://localhost:5092/iis/app-pools/DefaultAppPool/recycle" \
   -H "Authorization: Bearer {seu_token}"
 ```
 
@@ -543,11 +543,11 @@ curl -X POST "http://localhost:5092/api/iis/app-pools/DefaultAppPool/recycle" \
 
 ```bash
 # Listar aplicações de um site
-curl -X GET "http://localhost:5092/api/iis/sites/MeuProjeto/applications" \
+curl -X GET "http://localhost:5092/iis/sites/MeuProjeto/applications" \
   -H "Authorization: Bearer {seu_token}"
 
 # Remover uma aplicação específica
-curl -X DELETE "http://localhost:5092/api/iis/sites/MeuProjeto/applications/api" \
+curl -X DELETE "http://localhost:5092/iis/sites/MeuProjeto/applications/api" \
   -H "Authorization: Bearer {seu_token}"
 ```
 

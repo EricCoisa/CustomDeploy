@@ -131,7 +131,7 @@ BuildCommands = new string[] { "npm install", "npm run build", "dotnet build" }
 ## Exemplo de Uso Completo
 
 ```http
-POST /api/deploys/executar
+POST /deploys/executar
 {
   "repoUrl": "https://github.com/meu-projeto/api.git",
   "branch": "develop",

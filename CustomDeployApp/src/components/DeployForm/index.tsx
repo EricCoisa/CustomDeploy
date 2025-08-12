@@ -3,7 +3,6 @@ import { Button } from '../Button';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { executeDeploy, clearError } from '../../store/deploy/actions';
 import { fetchSites } from '../../store/iis';
-import type { DeployFormData } from '../../store/deploy/types';
 import type { IISSite } from '../../store/iis/types';
 import {
   FormContainer,
@@ -24,12 +23,13 @@ import {
   PreviewTitle,
   PreviewText,
 } from './styles';
+import type { DeployRequest } from '../../services/deployService';
 
 interface DeployFormProps {
   title?: string;
   onSuccess?: (result: Record<string, unknown>) => void;
   onError?: (error: string) => void;
-  initialData?: Partial<DeployFormData>;
+  initialData?: Partial<DeployRequest>;
   showPreview?: boolean;
 }
 
@@ -45,18 +45,20 @@ export const DeployForm: React.FC<DeployFormProps> = ({
   const { isDeploying, lastDeployResult, error } = useAppSelector(state => state.deploy);
 
   // Estados do formulário
-  const [formData, setFormData] = useState<DeployFormData>({
-    siteName: initialData?.siteName || '',
-    applicationPath: initialData?.applicationPath || '',
+  const [formData, setFormData] = useState<DeployRequest>({
     repoUrl: initialData?.repoUrl || '',
     branch: initialData?.branch || 'main',
-    buildCommand: initialData?.buildCommand || ['npm install && npm run build'],
+    buildCommands: initialData?.buildCommands || ['npm install && npm run build'],
     buildOutput: initialData?.buildOutput || 'dist',
+    iisSiteName: initialData?.iisSiteName || '',
+    targetPath: initialData?.targetPath || '',
+    applicationPath: initialData?.applicationPath || '',
+    plataforma: initialData?.plataforma || '',
   });
 
   // Estados de validação
-  const [errors, setErrors] = useState<Partial<Record<keyof DeployFormData, string>>>({});
-  const [touched, setTouched] = useState<Partial<Record<keyof DeployFormData, boolean>>>({});
+  const [errors, setErrors] = useState<Partial<Record<keyof DeployRequest, string>>>({});
+  const [touched, setTouched] = useState<Partial<Record<keyof DeployRequest, boolean>>>({});
 
   // Carregar sites do IIS ao montar o componente
   useEffect(() => {
@@ -66,32 +68,25 @@ export const DeployForm: React.FC<DeployFormProps> = ({
   }, [dispatch, sites.length, iisLoading.sites]);
 
   // Validação de campos
-  const validateField = (name: keyof DeployFormData, value: string | string[]): string => {
+  const validateField = (name: keyof DeployRequest, value: string | string[]): string => {
     switch (name) {
-      case 'siteName':
-        return !value ? 'Site é obrigatório' : '';
       case 'repoUrl':
-        if (!value) return 'URL do repositório é obrigatória';
-        if (typeof value === 'string' && !value.match(/^https?:\/\/.*\.git$|^git@.*\.git$|^https?:\/\/github\.com\/.*|^https?:\/\/gitlab\.com\/.*|^https?:\/\/bitbucket\.org\/.*/)) {
-          return 'URL do repositório inválida';
-        }
-        return '';
+        return !value ? 'URL do repositório é obrigatória' : '';
       case 'branch':
         return !value ? 'Branch é obrigatória' : '';
-      case 'buildCommand':
-        if (Array.isArray(value)) {
-          return value.length === 0 ? 'Comando de build é obrigatório' : '';
-        }
-        return !value ? 'Comando de build é obrigatório' : '';
+      case 'buildCommands':
+        return Array.isArray(value) && value.length === 0 ? 'Comandos de build são obrigatórios' : '';
       case 'buildOutput':
-        return !value ? 'Pasta de saída é obrigatória' : '';
+        return !value ? 'Saída do build é obrigatória' : '';
+      case 'iisSiteName':
+        return !value ? 'Nome do site IIS é obrigatório' : '';
       default:
         return '';
     }
   };
 
   // Atualizar campo do formulário
-  const handleFieldChange = (name: keyof DeployFormData, value: string) => {
+  const handleFieldChange = (name: keyof DeployRequest, value: string) => {
     setFormData(prev => ({ ...prev, [name]: value }));
     
     // Validar campo se já foi tocado
@@ -102,19 +97,19 @@ export const DeployForm: React.FC<DeployFormProps> = ({
   };
 
   // Marcar campo como tocado
-  const handleFieldBlur = (name: keyof DeployFormData) => {
+  const handleFieldBlur = (name: keyof DeployRequest) => {
     setTouched(prev => ({ ...prev, [name]: true }));
-    const error = validateField(name, formData[name]);
+    const error = validateField(name, formData[name] || ''); // Garantir valor padrão
     setErrors(prev => ({ ...prev, [name]: error }));
   };
 
   // Validar todo o formulário
   const validateForm = (): boolean => {
-    const newErrors: Partial<Record<keyof DeployFormData, string>> = {};
+    const newErrors: Partial<Record<keyof DeployRequest, string>> = {};
     let isValid = true;
 
-    (Object.keys(formData) as Array<keyof DeployFormData>).forEach(key => {
-      const error = validateField(key, formData[key]);
+    (Object.keys(formData) as Array<keyof DeployRequest>).forEach(key => {
+      const error = validateField(key, formData[key] || '');
       if (error) {
         newErrors[key] = error;
         isValid = false;
@@ -123,12 +118,13 @@ export const DeployForm: React.FC<DeployFormProps> = ({
 
     setErrors(newErrors);
     setTouched({
-      siteName: true,
-      applicationPath: true,
       repoUrl: true,
       branch: true,
-      buildCommand: true,
+      buildCommands: true,
       buildOutput: true,
+      iisSiteName: true,
+      applicationPath: true,
+      plataforma: true,
     });
 
     return isValid;
@@ -137,14 +133,18 @@ export const DeployForm: React.FC<DeployFormProps> = ({
   // Submeter formulário
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    console.log('Submitting form with data:', formData);
     if (!validateForm()) {
+      console.log('Form validation failed:', errors);
       return;
     }
 
     try {
+      // Mapeia os dados do formulário para o formato esperado pela API
+
+
       const result = await dispatch(executeDeploy(formData));
-      
+
       if (result.meta.requestStatus === 'fulfilled') {
         onSuccess?.(result.payload as Record<string, unknown>);
       } else {
@@ -163,7 +163,7 @@ export const DeployForm: React.FC<DeployFormProps> = ({
 
   // Gerar preview do caminho de destino
   const generateTargetPath = (): string => {
-    const selectedSite = sites.find(site => site.name === formData.siteName);
+    const selectedSite = sites.find(site => site.name === formData.iisSiteName);
     if (!selectedSite) return 'Selecione um site primeiro';
     
     let path = selectedSite.physicalPath;
@@ -176,22 +176,22 @@ export const DeployForm: React.FC<DeployFormProps> = ({
   const handleAddBuildCommand = () => {
     setFormData(prev => ({
       ...prev,
-      buildCommand: [...prev.buildCommand, ''],
+      buildCommands: [...prev.buildCommands, ''],
     }));
   };
 
   const handleRemoveBuildCommand = (index: number) => {
     setFormData(prev => ({
       ...prev,
-      buildCommand: prev.buildCommand.filter((_, i) => i !== index),
+      buildCommands: prev.buildCommands.filter((_, i) => i !== index),
     }));
   };
 
   const handleBuildCommandChange = (index: number, value: string) => {
     setFormData(prev => {
-      const updatedCommands = [...prev.buildCommand];
+      const updatedCommands = [...prev.buildCommands];
       updatedCommands[index] = value;
-      return { ...prev, buildCommand: updatedCommands };
+      return { ...prev, buildCommands: updatedCommands };
     });
   };
 
@@ -231,11 +231,11 @@ export const DeployForm: React.FC<DeployFormProps> = ({
             Site IIS <RequiredMark>*</RequiredMark>
           </FormLabel>
           <FormSelect
-            value={formData.siteName}
-            onChange={(e) => handleFieldChange('siteName', e.target.value)}
-            onBlur={() => handleFieldBlur('siteName')}
+            value={formData.iisSiteName}
+            onChange={(e) => handleFieldChange('iisSiteName', e.target.value)}
+            onBlur={() => handleFieldBlur('iisSiteName')}
             disabled={isDeploying || iisLoading.sites}
-            className={errors.siteName ? 'error' : ''}
+            className={errors.iisSiteName ? 'error' : ''}
           >
             <option value="">Selecione um site...</option>
             {sites.map((site: IISSite) => (
@@ -244,7 +244,7 @@ export const DeployForm: React.FC<DeployFormProps> = ({
               </option>
             ))}
           </FormSelect>
-          {errors.siteName && <ErrorText>⚠️ {errors.siteName}</ErrorText>}
+          {errors.iisSiteName && <ErrorText>⚠️ {errors.iisSiteName}</ErrorText>}
           {iisLoading.sites && <HelpText>Carregando sites...</HelpText>}
         </FormGroup>
 
@@ -253,7 +253,7 @@ export const DeployForm: React.FC<DeployFormProps> = ({
           <FormLabel>Caminho da Aplicação</FormLabel>
           <FormInput
             type="text"
-            placeholder="Ex: api, app, api/v1 (opcional)"
+            placeholder="Ex: api, app, v1 (opcional)"
             value={formData.applicationPath}
             onChange={(e) => handleFieldChange('applicationPath', e.target.value)}
             onBlur={() => handleFieldBlur('applicationPath')}
@@ -302,16 +302,16 @@ export const DeployForm: React.FC<DeployFormProps> = ({
           <FormLabel>
             Comandos de Build <RequiredMark>*</RequiredMark>
           </FormLabel>
-          {formData.buildCommand.map((command, index) => (
+          {formData.buildCommands.map((command, index) => (
             <div key={index} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
               <FormInput
                 type="text"
                 placeholder="npm install && npm run build"
                 value={command}
                 onChange={(e) => handleBuildCommandChange(index, e.target.value)}
-                onBlur={() => handleFieldBlur('buildCommand')}
+                onBlur={() => handleFieldBlur('buildCommands')}
                 disabled={isDeploying}
-                className={errors.buildCommand ? 'error' : ''}
+                className={errors.buildCommands ? 'error' : ''}
                 style={{ flex: 1, marginRight: '8px' }}
               />
               <Button
@@ -334,7 +334,7 @@ export const DeployForm: React.FC<DeployFormProps> = ({
           >
             + Adicionar Comando
           </Button>
-          {errors.buildCommand && <ErrorText>⚠️ {errors.buildCommand}</ErrorText>}
+          {errors.buildCommands && <ErrorText>⚠️ {errors.buildCommands}</ErrorText>}
           <HelpText>Comandos para instalar dependências e fazer build do projeto</HelpText>
         </FormGroup>
 
@@ -358,7 +358,7 @@ export const DeployForm: React.FC<DeployFormProps> = ({
       </FormGrid>
 
       {/* Preview do Caminho de Destino */}
-      {showPreview && formData.siteName && (
+      {showPreview && formData.iisSiteName && (
         <PreviewSection>
           <PreviewTitle>📁 Caminho de Destino</PreviewTitle>
           <PreviewText>{generateTargetPath()}</PreviewText>
@@ -373,12 +373,14 @@ export const DeployForm: React.FC<DeployFormProps> = ({
           disabled={isDeploying}
           onClick={() => {
             setFormData({
-              siteName: '',
-              applicationPath: '',
               repoUrl: '',
               branch: 'main',
-              buildCommand: ['npm install && npm run build'],
+              buildCommands: ['npm install && npm run build'],
               buildOutput: 'dist',
+              iisSiteName: '',
+              targetPath: '',
+              applicationPath: '',
+              plataforma: '',
             });
             setErrors({});
             setTouched({});

@@ -10,21 +10,21 @@ O `DeployController` foi renomeado para `SystemController` pois suas funcionalid
 
 1. **Arquivo renomeado**: `DeployController.cs` → `SystemController.cs`
 2. **Classe renomeada**: `DeployController` → `SystemController` 
-3. **Rota alterada**: `[Route("deploy")]` → `[Route("api/system")]`
+3. **Rota alterada**: `[Route("deploy")]` → `[Route("system")]`
 4. **Logger atualizado**: `ILogger<DeployController>` → `ILogger<SystemController>`
 
 ### Frontend (TypeScript/React)
 
 1. **Serviço atualizado**: `deployService.ts`
    - Comentário alterado: "DeployController" → "SystemController"
-   - Rota atualizada: `/deploy` → `/api/system`
+   - Rota atualizada: `/deploy` → `/system`
 
 2. **Constantes atualizadas**: `constants.ts`
    - Seção `DEPLOY` renomeada para `SYSTEM`
    - Novas rotas adicionadas:
-     - `CREDENTIALS_STATUS: '/api/system/credentials/status'`
-     - `CREDENTIALS_TEST: '/api/system/credentials/test'`
-     - `REPOSITORY_VALIDATE: '/api/system/repository/validate'`
+     - `CREDENTIALS_STATUS: '/system/credentials/status'`
+     - `CREDENTIALS_TEST: '/system/credentials/test'`
+     - `REPOSITORY_VALIDATE: '/system/repository/validate'`
    - Nova rota em `ROUTES`: `SYSTEM: '/system'`
 
 3. **Header atualizado**: `Header.tsx`
@@ -39,21 +39,21 @@ O `DeployController` foi renomeado para `SystemController` pois suas funcionalid
 
 O SystemController agora gerencia:
 
-- ✅ **Deploy básico**: Execução de deploy (POST `/api/system`)
+- ✅ **Deploy básico**: Execução de deploy (POST `/system`)
 - ✅ **Credenciais Git**: 
-  - Status das credenciais (GET `/api/system/credentials/status`)
-  - Teste de credenciais (POST `/api/system/credentials/test`)
+  - Status das credenciais (GET `/system/credentials/status`)
+  - Teste de credenciais (POST `/system/credentials/test`)
 - ✅ **Validação de repositório**: 
-  - Validação de repositório e branch (POST `/api/system/repository/validate`)
+  - Validação de repositório e branch (POST `/system/repository/validate`)
 
 ## Endpoints Disponíveis
 
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| POST | `/api/system` | Executar deploy |
-| GET | `/api/system/credentials/status` | Verificar status das credenciais |
-| POST | `/api/system/credentials/test` | Testar credenciais |
-| POST | `/api/system/repository/validate` | Validar repositório e branch |
+| POST | `/system` | Executar deploy |
+| GET | `/system/credentials/status` | Verificar status das credenciais |
+| POST | `/system/credentials/test` | Testar credenciais |
+| POST | `/system/repository/validate` | Validar repositório e branch |
 
 ## Compatibilidade
 
@@ -65,7 +65,7 @@ O SystemController agora gerencia:
 ## Observações
 
 1. O componente `DeployView` foi mantido para preservar a funcionalidade existente
-2. As rotas antigas não funcionarão mais - necessário usar `/api/system`
+2. As rotas antigas não funcionarão mais - necessário usar `/system`
 3. O frontend agora acessa o sistema através da rota `/system`
 4. Todas as funcionalidades de deploy foram movidas para o novo `DeploysController` com Entity Framework
 

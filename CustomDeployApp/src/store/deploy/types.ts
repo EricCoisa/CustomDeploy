@@ -19,14 +19,6 @@ export interface DeployResult {
   deployDetails?: Record<string, unknown>;
 }
 
-export interface DeployFormData {
-  siteName: string;
-  applicationPath: string;
-  repoUrl: string;
-  branch: string;
-  buildCommand: string[];
-  buildOutput: string;
-}
 
 // Action types
 export const DEPLOY_ACTION_TYPES = {

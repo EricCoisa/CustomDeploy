@@ -79,7 +79,7 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{base_url}}/api/iis/admin-status",
+              "raw": "{{base_url}}/iis/admin-status",
               "host": ["{{base_url}}"],
               "path": ["api", "iis", "admin-status"]
             }
@@ -90,7 +90,7 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{base_url}}/api/iis/permissions",
+              "raw": "{{base_url}}/iis/permissions",
               "host": ["{{base_url}}"],
               "path": ["api", "iis", "permissions"]
             }
@@ -106,7 +106,7 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{base_url}}/api/iis/sites",
+              "raw": "{{base_url}}/iis/sites",
               "host": ["{{base_url}}"],
               "path": ["api", "iis", "sites"]
             }
@@ -117,7 +117,7 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{base_url}}/api/iis/sites/Default Web Site",
+              "raw": "{{base_url}}/iis/sites/Default Web Site",
               "host": ["{{base_url}}"],
               "path": ["api", "iis", "sites", "Default Web Site"]
             }
@@ -138,7 +138,7 @@
               "raw": "{\n  \"SiteName\": \"MeuNovoSite\",\n  \"BindingInformation\": \"0.0.0.0:8080:\",\n  \"PhysicalPath\": \"C:\\\\inetpub\\\\wwwroot\\\\meunovosite\",\n  \"AppPoolName\": \"DefaultAppPool\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/api/iis/sites",
+              "raw": "{{base_url}}/iis/sites",
               "host": ["{{base_url}}"],
               "path": ["api", "iis", "sites"]
             }
@@ -159,7 +159,7 @@
               "raw": "{\n  \"PhysicalPath\": \"C:\\\\inetpub\\\\wwwroot\\\\meunovosite-atualizado\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/api/iis/sites/MeuNovoSite",
+              "raw": "{{base_url}}/iis/sites/MeuNovoSite",
               "host": ["{{base_url}}"],
               "path": ["api", "iis", "sites", "MeuNovoSite"]
             }
@@ -170,7 +170,7 @@
           "request": {
             "method": "DELETE",
             "url": {
-              "raw": "{{base_url}}/api/iis/sites/MeuNovoSite",
+              "raw": "{{base_url}}/iis/sites/MeuNovoSite",
               "host": ["{{base_url}}"],
               "path": ["api", "iis", "sites", "MeuNovoSite"]
             }
@@ -186,7 +186,7 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{base_url}}/api/iis/sites/Default Web Site/applications",
+              "raw": "{{base_url}}/iis/sites/Default Web Site/applications",
               "host": ["{{base_url}}"],
               "path": ["api", "iis", "sites", "Default Web Site", "applications"]
             }
@@ -207,7 +207,7 @@
               "raw": "{\n  \"SiteName\": \"Default Web Site\",\n  \"AppPath\": \"/minhaapp\",\n  \"PhysicalPath\": \"C:\\\\inetpub\\\\wwwroot\\\\minhaapp\",\n  \"AppPoolName\": \"DefaultAppPool\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/api/iis/applications",
+              "raw": "{{base_url}}/iis/applications",
               "host": ["{{base_url}}"],
               "path": ["api", "iis", "applications"]
             }
@@ -228,7 +228,7 @@
               "raw": "{\n  \"PhysicalPath\": \"C:\\\\inetpub\\\\wwwroot\\\\minhaapp-atualizada\",\n  \"AppPoolName\": \"DefaultAppPool\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/api/iis/sites/Default Web Site/applications/minhaapp",
+              "raw": "{{base_url}}/iis/sites/Default Web Site/applications/minhaapp",
               "host": ["{{base_url}}"],
               "path": ["api", "iis", "sites", "Default Web Site", "applications", "minhaapp"]
             }
@@ -239,7 +239,7 @@
           "request": {
             "method": "DELETE",
             "url": {
-              "raw": "{{base_url}}/api/iis/sites/Default Web Site/applications/minhaapp",
+              "raw": "{{base_url}}/iis/sites/Default Web Site/applications/minhaapp",
               "host": ["{{base_url}}"],
               "path": ["api", "iis", "sites", "Default Web Site", "applications", "minhaapp"]
             }
@@ -255,7 +255,7 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{base_url}}/api/iis/app-pools",
+              "raw": "{{base_url}}/iis/app-pools",
               "host": ["{{base_url}}"],
               "path": ["api", "iis", "app-pools"]
             }
@@ -266,7 +266,7 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{base_url}}/api/iis/app-pools/DefaultAppPool",
+              "raw": "{{base_url}}/iis/app-pools/DefaultAppPool",
               "host": ["{{base_url}}"],
               "path": ["api", "iis", "app-pools", "DefaultAppPool"]
             }
@@ -287,7 +287,7 @@
               "raw": "{\n  \"PoolName\": \"MeuNovoPool\",\n  \"RuntimeVersion\": \"v4.0\",\n  \"PipelineMode\": \"Integrated\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/api/iis/app-pools",
+              "raw": "{{base_url}}/iis/app-pools",
               "host": ["{{base_url}}"],
               "path": ["api", "iis", "app-pools"]
             }
@@ -308,7 +308,7 @@
               "raw": "{\n  \"RuntimeVersion\": \"No Managed Code\",\n  \"PipelineMode\": \"Classic\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/api/iis/app-pools/MeuNovoPool",
+              "raw": "{{base_url}}/iis/app-pools/MeuNovoPool",
               "host": ["{{base_url}}"],
               "path": ["api", "iis", "app-pools", "MeuNovoPool"]
             }
@@ -319,7 +319,7 @@
           "request": {
             "method": "DELETE",
             "url": {
-              "raw": "{{base_url}}/api/iis/app-pools/MeuNovoPool",
+              "raw": "{{base_url}}/iis/app-pools/MeuNovoPool",
               "host": ["{{base_url}}"],
               "path": ["api", "iis", "app-pools", "MeuNovoPool"]
             }
@@ -330,7 +330,7 @@
           "request": {
             "method": "POST",
             "url": {
-              "raw": "{{base_url}}/api/iis/app-pools/DefaultAppPool/start",
+              "raw": "{{base_url}}/iis/app-pools/DefaultAppPool/start",
               "host": ["{{base_url}}"],
               "path": ["api", "iis", "app-pools", "DefaultAppPool", "start"]
             }
@@ -341,7 +341,7 @@
           "request": {
             "method": "POST",
             "url": {
-              "raw": "{{base_url}}/api/iis/app-pools/DefaultAppPool/stop",
+              "raw": "{{base_url}}/iis/app-pools/DefaultAppPool/stop",
               "host": ["{{base_url}}"],
               "path": ["api", "iis", "app-pools", "DefaultAppPool", "stop"]
             }
@@ -352,7 +352,7 @@
           "request": {
             "method": "POST",
             "url": {
-              "raw": "{{base_url}}/api/iis/app-pools/DefaultAppPool/recycle",
+              "raw": "{{base_url}}/iis/app-pools/DefaultAppPool/recycle",
               "host": ["{{base_url}}"],
               "path": ["api", "iis", "app-pools", "DefaultAppPool", "recycle"]
             }
@@ -378,7 +378,7 @@
               "raw": "{\n  \"SiteName\": \"\",\n  \"BindingInformation\": \"\",\n  \"PhysicalPath\": \"\",\n  \"AppPoolName\": \"\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/api/iis/sites",
+              "raw": "{{base_url}}/iis/sites",
               "host": ["{{base_url}}"],
               "path": ["api", "iis", "sites"]
             }
@@ -389,7 +389,7 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{base_url}}/api/iis/sites/SiteInexistente",
+              "raw": "{{base_url}}/iis/sites/SiteInexistente",
               "host": ["{{base_url}}"],
               "path": ["api", "iis", "sites", "SiteInexistente"]
             }
@@ -403,7 +403,7 @@
             },
             "method": "GET",
             "url": {
-              "raw": "{{base_url}}/api/iis/sites",
+              "raw": "{{base_url}}/iis/sites",
               "host": ["{{base_url}}"],
               "path": ["api", "iis", "sites"]
             }

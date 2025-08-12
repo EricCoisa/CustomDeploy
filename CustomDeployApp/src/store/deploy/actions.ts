@@ -1,24 +1,14 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
-import { deployService } from '../../services/deployService';
-import type { DeployFormData } from './types';
+import { deployService, type DeployRequest } from '../../services/deployService';
 
 // Executar deploy
 export const executeDeploy = createAsyncThunk(
   'deploy/executeDeploy',
-  async (formData: DeployFormData, { rejectWithValue }) => {
+  async (request: DeployRequest, { rejectWithValue }) => {
     try {
-      // Construir request para o backend
-      const request = {
-        repoUrl: formData.repoUrl,
-        branch: formData.branch,
-        buildCommand: formData.buildCommand,
-        buildOutput: formData.buildOutput,
-        iisSiteName: formData.siteName,
-        applicationPath: formData.applicationPath || undefined,
-      };
 
       const response = await deployService.executeDeploy(request);
-      
+
       if (!response.success) {
         return rejectWithValue(response.data || 'Erro ao executar deploy');
       }

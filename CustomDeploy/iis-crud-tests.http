@@ -17,27 +17,27 @@ Content-Type: application/json
 
 ##################################################
 ### 2. VERIFICAÇÃO DE PERMISSÕES - Status de Administrador
-GET http://localhost:5092/api/iis/admin-status
+GET http://localhost:5092/iis/admin-status
 Authorization: Bearer {token_aqui}
 
 ##################################################
 ### 3. VERIFICAÇÃO DE PERMISSÕES - Verificar Permissões IIS
-GET http://localhost:5092/api/iis/permissions
+GET http://localhost:5092/iis/permissions
 Authorization: Bearer {token_aqui}
 
 ##################################################
 ### 4. SITES IIS - CRUD Operations
 
 ### 4.1 Listar todos os sites
-GET http://localhost:5092/api/iis/sites
+GET http://localhost:5092/iis/sites
 Authorization: Bearer {token_aqui}
 
 ### 4.2 Obter detalhes de um site específico
-GET http://localhost:5092/api/iis/sites/Default Web Site
+GET http://localhost:5092/iis/sites/Default Web Site
 Authorization: Bearer {token_aqui}
 
 ### 4.3 Criar um novo site
-POST http://localhost:5092/api/iis/sites
+POST http://localhost:5092/iis/sites
 Authorization: Bearer {token_aqui}
 Content-Type: application/json
 
@@ -49,7 +49,7 @@ Content-Type: application/json
 }
 
 ### 4.4 Atualizar um site existente
-PUT http://localhost:5092/api/iis/sites/TestSite
+PUT http://localhost:5092/iis/sites/TestSite
 Authorization: Bearer {token_aqui}
 Content-Type: application/json
 
@@ -58,18 +58,18 @@ Content-Type: application/json
 }
 
 ### 4.5 Deletar um site
-DELETE http://localhost:5092/api/iis/sites/TestSite
+DELETE http://localhost:5092/iis/sites/TestSite
 Authorization: Bearer {token_aqui}
 
 ##################################################
 ### 5. APLICAÇÕES IIS - CRUD Operations
 
 ### 5.1 Listar aplicações de um site
-GET http://localhost:5092/api/iis/sites/Default Web Site/applications
+GET http://localhost:5092/iis/sites/Default Web Site/applications
 Authorization: Bearer {token_aqui}
 
 ### 5.2 Criar uma aplicação dentro de um site
-POST http://localhost:5092/api/iis/applications
+POST http://localhost:5092/iis/applications
 Authorization: Bearer {token_aqui}
 Content-Type: application/json
 
@@ -81,7 +81,7 @@ Content-Type: application/json
 }
 
 ### 5.3 Atualizar uma aplicação
-PUT http://localhost:5092/api/iis/sites/Default Web Site/applications/testapp
+PUT http://localhost:5092/iis/sites/Default Web Site/applications/testapp
 Authorization: Bearer {token_aqui}
 Content-Type: application/json
 
@@ -94,22 +94,22 @@ Content-Type: application/json
 }
 
 ### 5.4 Deletar uma aplicação
-DELETE http://localhost:5092/api/iis/sites/TestSite/applications/testapp
+DELETE http://localhost:5092/iis/sites/TestSite/applications/testapp
 Authorization: Bearer {token_aqui}
 
 ##################################################
 ### 6. APPLICATION POOLS - CRUD Operations
 
 ### 6.1 Listar todos os Application Pools
-GET http://localhost:5092/api/iis/app-pools
+GET http://localhost:5092/iis/app-pools
 Authorization: Bearer {token_aqui}
 
 ### 6.2 Obter detalhes de um Application Pool específico
-GET http://localhost:5092/api/iis/app-pools/DefaultAppPool
+GET http://localhost:5092/iis/app-pools/DefaultAppPool
 Authorization: Bearer {token_aqui}
 
 ### 6.3 Criar um novo Application Pool
-POST http://localhost:5092/api/iis/app-pools
+POST http://localhost:5092/iis/app-pools
 Authorization: Bearer {token_aqui}
 Content-Type: application/json
 
@@ -120,7 +120,7 @@ Content-Type: application/json
 }
 
 ### 6.4 Atualizar um Application Pool
-PUT http://localhost:5092/api/iis/app-pools/TestAppPool
+PUT http://localhost:5092/iis/app-pools/TestAppPool
 Authorization: Bearer {token_aqui}
 Content-Type: application/json
 
@@ -133,29 +133,29 @@ Content-Type: application/json
 }
 
 ### 6.5 Deletar um Application Pool
-DELETE http://localhost:5092/api/iis/app-pools/TestAppPool
+DELETE http://localhost:5092/iis/app-pools/TestAppPool
 Authorization: Bearer {token_aqui}
 
 ##################################################
 ### 7. OPERAÇÕES DE CONTROLE DE APPLICATION POOLS
 
 ### 7.1 Iniciar Application Pool
-POST http://localhost:5092/api/iis/app-pools/TestAppPool/start
+POST http://localhost:5092/iis/app-pools/TestAppPool/start
 Authorization: Bearer {token_aqui}
 
 ### 7.2 Parar Application Pool
-POST http://localhost:5092/api/iis/app-pools/TestAppPool/stop
+POST http://localhost:5092/iis/app-pools/TestAppPool/stop
 Authorization: Bearer {token_aqui}
 
 ### 7.3 Reciclar Application Pool
-POST http://localhost:5092/api/iis/app-pools/TestAppPool/recycle
+POST http://localhost:5092/iis/app-pools/TestAppPool/recycle
 Authorization: Bearer {token_aqui}
 
 ##################################################
 ### 8. TESTES DE VALIDAÇÃO E ERRO
 
 ### 8.1 Tentar criar site com nome já existente
-POST http://localhost:5092/api/iis/sites
+POST http://localhost:5092/iis/sites
 Authorization: Bearer {token_aqui}
 Content-Type: application/json
 
@@ -169,11 +169,11 @@ Content-Type: application/json
 }
 
 ### 8.2 Tentar acessar site inexistente
-GET http://localhost:5092/api/iis/sites/SiteInexistente
+GET http://localhost:5092/iis/sites/SiteInexistente
 Authorization: Bearer {token_aqui}
 
 ### 8.3 Tentar criar Application Pool com nome já existente
-POST http://localhost:5092/api/iis/app-pools
+POST http://localhost:5092/iis/app-pools
 Authorization: Bearer {token_aqui}
 Content-Type: application/json
 
@@ -186,7 +186,7 @@ Content-Type: application/json
 }
 
 ### 8.4 Tentar executar operação sem token JWT
-GET http://localhost:5092/api/iis/sites
+GET http://localhost:5092/iis/sites
 
 ##################################################
 ### 9. VERIFICAÇÕES DE SEGURANÇA
@@ -195,7 +195,7 @@ GET http://localhost:5092/api/iis/sites
 ### (Este teste deve falhar se o usuário não for administrador)
 
 ### 9.2 Verificar validação de entrada
-POST http://localhost:5092/api/iis/sites
+POST http://localhost:5092/iis/sites
 Authorization: Bearer {token_aqui}
 Content-Type: application/json
 

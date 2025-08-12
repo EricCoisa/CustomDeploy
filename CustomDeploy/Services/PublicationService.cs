@@ -1,4 +1,5 @@
 using CustomDeploy.Models;
+using CustomDeploy.Services.Business;
 using System.Text.Json;
 
 namespace CustomDeploy.Services
@@ -6,10 +7,10 @@ namespace CustomDeploy.Services
     public class PublicationService
     {
         private readonly ILogger<PublicationService> _logger;
-        private readonly DeployService _deployService;
+      private readonly IDeployBusinessService _deployService;
         private readonly IISManagementService _iisManagementService;
 
-        public PublicationService(ILogger<PublicationService> logger, IConfiguration configuration, DeployService deployService, IISManagementService iisManagementService)
+        public PublicationService(ILogger<PublicationService> logger, IConfiguration configuration, IDeployBusinessService deployService, IISManagementService iisManagementService)
         {
             _logger = logger;
             _deployService = deployService;
@@ -17,7 +18,7 @@ namespace CustomDeploy.Services
         }
 
         /// <summary>
-        /// Lista todas as publicações usando o IIS como fonte de verdade
+        /// Lista todas as publicações usando o IIS como fonte de verdade e verifica relação com deploys
         /// </summary>
         /// <returns>Lista de publicações baseadas no IIS</returns>
         public async Task<List<IISBasedPublication>> GetPublicationsAsync()
@@ -61,6 +62,7 @@ namespace CustomDeploy.Services
 
                         // 2.1. Adicionar o site raiz
                         var sitePublication = await CreatePublicationFromSite(site, null);
+                        await EnrichPublicationWithDeployData(sitePublication);
                         publications.Add(sitePublication);
 
                         // 2.2. Obter aplicações do site
@@ -82,6 +84,7 @@ namespace CustomDeploy.Services
                                     if (string.IsNullOrWhiteSpace(cleanAppName)) continue;
 
                                     var appPublication = await CreatePublicationFromSite(site, app);
+                                    await EnrichPublicationWithDeployData(appPublication);
                                     publications.Add(appPublication);
                                 }
                                 catch (Exception ex)
@@ -202,6 +205,29 @@ namespace CustomDeploy.Services
             }
         }
 
+        /// <summary>
+        /// Enriquecer publicação com dados do DeployService
+        /// </summary>
+        private async Task EnrichPublicationWithDeployData(IISBasedPublication publication)
+        {
+            try
+            {
+                var deploy = (await _deployService.ObterDeploysPorSiteAsync(publication.Name)).LastOrDefault();
+                if (deploy != null)
+                {
+                    publication.RepoUrl = deploy.RepoUrl;
+                    publication.Branch = deploy.Branch;
+                    publication.BuildCommand = deploy.DeployComandos.Select(dc => dc.Comando).ToArray();
+                    publication.BuildOutput = deploy.BuildOutput;
+                    publication.DeployedAt = deploy.Data;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Erro ao enriquecer publicação {Name} com dados do DeployService", publication.Name);
+            }
+        }
+
         // Método legado mantido para compatibilidade
         public async Task<PublicationInfo?> GetPublicationByNameAsync(string name)
         {
@@ -216,7 +242,7 @@ namespace CustomDeploy.Services
                 Name = publication.Name,
                 Repository = publication.RepoUrl ?? "N/A",
                 Branch = publication.Branch ?? "N/A",
-                BuildCommand = publication.BuildCommand ?? "N/A",
+                BuildCommand = publication.BuildCommand ?? new[] { "N/A" },
                 FullPath = publication.FullPath,
                 DeployedAt = publication.DeployedAt ?? DateTime.MinValue,
                 Exists = publication.Exists,

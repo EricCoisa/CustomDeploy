@@ -33,6 +33,15 @@ namespace CustomDeploy.Models.Entities
         [MaxLength(100)]
         public string? Plataforma { get; set; }
 
+        [MaxLength(200)]
+        public string? RepoUrl { get; set; }
+
+        [MaxLength(100)]
+        public string? Branch { get; set; }
+
+        [MaxLength(100)]
+        public string? BuildOutput { get; set; }
+
         // Navigation Properties
         [ForeignKey(nameof(UsuarioId))]
         public virtual Usuario Usuario { get; set; } = null!;

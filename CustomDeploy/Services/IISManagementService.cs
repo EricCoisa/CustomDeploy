@@ -159,7 +159,7 @@ namespace CustomDeploy.Services
                     result.TestDetails.Add("❌ Aplicação NÃO está executando como Administrador");
                     result.TestDetails.Add($"💡 {elevationMessage}");
                     result.Instructions.Add("🔐 IMPORTANTE: Execute a aplicação como Administrador!");
-                    result.Instructions.Add("• Use o endpoint POST /api/iis/request-admin para reiniciar automaticamente");
+                    result.Instructions.Add("• Use o endpoint POST /iis/request-admin para reiniciar automaticamente");
                     result.Instructions.Add("• Ou feche a aplicação e execute como administrador manualmente");
                     result.Instructions.Add("");
                     _logger.LogWarning("Verificação de administrador: FALHA - {Message}", elevationMessage);

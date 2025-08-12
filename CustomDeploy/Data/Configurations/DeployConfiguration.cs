@@ -46,6 +46,15 @@ namespace CustomDeploy.Data.Configurations
             builder.Property(d => d.AtualizadoEm)
                 .IsRequired(false);
 
+            builder.Property(d => d.RepoUrl)
+                .HasMaxLength(200);
+
+            builder.Property(d => d.Branch)
+                .HasMaxLength(100);
+
+            builder.Property(d => d.BuildOutput)
+                .HasMaxLength(100);
+
             // Relacionamentos
             builder.HasOne(d => d.Usuario)
                 .WithMany(u => u.Deploys)
