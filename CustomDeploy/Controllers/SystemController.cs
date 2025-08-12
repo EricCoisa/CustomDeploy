@@ -7,17 +7,17 @@ using Microsoft.Extensions.Options;
 namespace CustomDeploy.Controllers
 {
     [ApiController]
-    [Route("deploy")]
+    [Route("system")]
     [Authorize]
-    public class DeployController : ControllerBase
+    public class SystemController : ControllerBase
     {
-        private readonly ILogger<DeployController> _logger;
+        private readonly ILogger<SystemController> _logger;
         private readonly DeployService _deployService;
         private readonly GitHubService _gitHubService;
         private readonly GitHubSettings _gitHubSettings;
 
-        public DeployController(
-            ILogger<DeployController> logger, 
+        public SystemController(
+            ILogger<SystemController> logger, 
             DeployService deployService,
             GitHubService gitHubService,
             IOptions<GitHubSettings> gitHubSettings)
@@ -39,11 +39,11 @@ namespace CustomDeploy.Controllers
                 // Validação básica
                 if (string.IsNullOrWhiteSpace(request.RepoUrl) ||
                     string.IsNullOrWhiteSpace(request.Branch) ||
-                    string.IsNullOrWhiteSpace(request.BuildCommand) ||
+                    request.BuildCommands == null || request.BuildCommands.Length == 0 ||
                     string.IsNullOrWhiteSpace(request.BuildOutput) ||
                     string.IsNullOrWhiteSpace(request.IisSiteName))
                 {
-                    return BadRequest(new { message = "RepoUrl, Branch, BuildCommand, BuildOutput and IisSiteName are required" });
+                    return BadRequest(new { message = "RepoUrl, Branch, BuildCommands (at least one), BuildOutput and IisSiteName are required" });
                 }
 
                 // TargetPath é opcional quando ApplicationPath é especificado
@@ -59,7 +59,7 @@ namespace CustomDeploy.Controllers
                         message = result.Message,
                         repository = request.RepoUrl,
                         branch = request.Branch,
-                        buildCommand = request.BuildCommand,
+                        buildCommands = request.BuildCommands,
                         buildOutput = request.BuildOutput,
                         targetPath = request.TargetPath,
                         iisSiteName = request.IisSiteName,

@@ -328,7 +328,7 @@ export const RecentDeploymentsCard: React.FC<RecentDeploymentsCardProps> = ({
 
   // Mostrar apenas os 4 primeiros deployments
   const displayDeployments = deployments.slice(0, 4);
-
+  console.log("Deployments a serem exibidos:", displayDeployments);
   return (
     <MainCard>
       <CardHeader>

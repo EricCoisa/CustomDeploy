@@ -4,7 +4,7 @@ namespace CustomDeploy.Models
     {
         public string RepoUrl { get; set; } = string.Empty;
         public string Branch { get; set; } = string.Empty;
-        public string BuildCommand { get; set; } = string.Empty;
+        public string[] BuildCommands { get; set; } = Array.Empty<string>();
         public string BuildOutput { get; set; } = string.Empty;
         
         /// <summary>

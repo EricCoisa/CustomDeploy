@@ -1,16 +1,37 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Microsoft.EntityFrameworkCore;
 using System.Text;
 using CustomDeploy.Models;
 using CustomDeploy.Services;
+using CustomDeploy.Services.Business;
+using CustomDeploy.Data;
+using CustomDeploy.Data.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
 
-// Registrar o DeployService
+// Configure Entity Framework with SQLite
+builder.Services.AddDbContext<CustomDeployDbContext>(options =>
+{
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+        ?? "Data Source=customdeploy.db;Cache=Shared";
+    options.UseSqlite(connectionString);
+});
+
+// Registrar Repositórios
+builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
+builder.Services.AddScoped<IAcessoNivelRepository, AcessoNivelRepository>();
+builder.Services.AddScoped<IDeployRepository, DeployRepository>();
+
+// Registrar Serviços de Negócio
+builder.Services.AddScoped<IUsuarioBusinessService, UsuarioBusinessService>();
+builder.Services.AddScoped<IDeployBusinessService, DeployBusinessService>();
+
+// Registrar o DeployService (legacy)
 builder.Services.AddScoped<DeployService>();
 
 // Registrar o PublicationService
@@ -113,6 +134,22 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+// Ensure database is created and seeded
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<CustomDeployDbContext>();
+    try
+    {
+        await context.Database.EnsureCreatedAsync();
+        await SeedDatabaseAsync(context, scope.ServiceProvider);
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Erro ao inicializar banco de dados");
+    }
+}
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -133,3 +170,53 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+// Método para popular o banco de dados com dados iniciais
+static async Task SeedDatabaseAsync(CustomDeployDbContext context, IServiceProvider serviceProvider)
+{
+    var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+    
+    try
+    {
+        // Verificar se já existem dados
+        if (await context.Usuarios.AnyAsync())
+        {
+            logger.LogInformation("Banco de dados já possui dados. Seed ignorado.");
+            return;
+        }
+
+        logger.LogInformation("Iniciando seed do banco de dados...");
+
+        // Criar níveis de acesso se não existirem
+        if (!await context.AcessoNiveis.AnyAsync())
+        {
+            var acessoNiveis = new[]
+            {
+                new CustomDeploy.Models.Entities.AcessoNivel { Id = 1, Nome = "Administrador" },
+                new CustomDeploy.Models.Entities.AcessoNivel { Id = 2, Nome = "Operador" }
+            };
+
+            context.AcessoNiveis.AddRange(acessoNiveis);
+            await context.SaveChangesAsync();
+            logger.LogInformation("Níveis de acesso criados com sucesso.");
+        }
+
+        // Criar usuário administrador padrão
+        var usuarioBusinessService = serviceProvider.GetRequiredService<IUsuarioBusinessService>();
+        
+        var adminUser = await usuarioBusinessService.CriarUsuarioAsync(
+            "Administrador",
+            "admin@customdeploy.com",
+            "admin123",
+            1 // Administrador
+        );
+
+        logger.LogInformation("Usuário administrador criado: {Email}", adminUser.Email);
+        logger.LogInformation("Seed do banco de dados concluído com sucesso.");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Erro durante o seed do banco de dados");
+        throw;
+    }
+}

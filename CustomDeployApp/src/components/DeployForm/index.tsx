@@ -14,7 +14,6 @@ import {
   RequiredMark,
   FormInput,
   FormSelect,
-  FormTextarea,
   HelpText,
   ErrorText,
   FormActions,
@@ -51,7 +50,7 @@ export const DeployForm: React.FC<DeployFormProps> = ({
     applicationPath: initialData?.applicationPath || '',
     repoUrl: initialData?.repoUrl || '',
     branch: initialData?.branch || 'main',
-    buildCommand: initialData?.buildCommand || 'npm install && npm run build',
+    buildCommand: initialData?.buildCommand || ['npm install && npm run build'],
     buildOutput: initialData?.buildOutput || 'dist',
   });
 
@@ -67,19 +66,22 @@ export const DeployForm: React.FC<DeployFormProps> = ({
   }, [dispatch, sites.length, iisLoading.sites]);
 
   // Validação de campos
-  const validateField = (name: keyof DeployFormData, value: string): string => {
+  const validateField = (name: keyof DeployFormData, value: string | string[]): string => {
     switch (name) {
       case 'siteName':
         return !value ? 'Site é obrigatório' : '';
       case 'repoUrl':
         if (!value) return 'URL do repositório é obrigatória';
-        if (!value.match(/^https?:\/\/.*\.git$|^git@.*\.git$|^https?:\/\/github\.com\/.*|^https?:\/\/gitlab\.com\/.*|^https?:\/\/bitbucket\.org\/.*/)) {
+        if (typeof value === 'string' && !value.match(/^https?:\/\/.*\.git$|^git@.*\.git$|^https?:\/\/github\.com\/.*|^https?:\/\/gitlab\.com\/.*|^https?:\/\/bitbucket\.org\/.*/)) {
           return 'URL do repositório inválida';
         }
         return '';
       case 'branch':
         return !value ? 'Branch é obrigatória' : '';
       case 'buildCommand':
+        if (Array.isArray(value)) {
+          return value.length === 0 ? 'Comando de build é obrigatório' : '';
+        }
         return !value ? 'Comando de build é obrigatório' : '';
       case 'buildOutput':
         return !value ? 'Pasta de saída é obrigatória' : '';
@@ -169,6 +171,28 @@ export const DeployForm: React.FC<DeployFormProps> = ({
       path += `\\${formData.applicationPath}`;
     }
     return path;
+  };
+
+  const handleAddBuildCommand = () => {
+    setFormData(prev => ({
+      ...prev,
+      buildCommand: [...prev.buildCommand, ''],
+    }));
+  };
+
+  const handleRemoveBuildCommand = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      buildCommand: prev.buildCommand.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleBuildCommandChange = (index: number, value: string) => {
+    setFormData(prev => {
+      const updatedCommands = [...prev.buildCommand];
+      updatedCommands[index] = value;
+      return { ...prev, buildCommand: updatedCommands };
+    });
   };
 
   return (
@@ -276,16 +300,40 @@ export const DeployForm: React.FC<DeployFormProps> = ({
         {/* Comando de Build */}
         <FormGroup>
           <FormLabel>
-            Comando de Build <RequiredMark>*</RequiredMark>
+            Comandos de Build <RequiredMark>*</RequiredMark>
           </FormLabel>
-          <FormTextarea
-            placeholder="npm install && npm run build"
-            value={formData.buildCommand}
-            onChange={(e) => handleFieldChange('buildCommand', e.target.value)}
-            onBlur={() => handleFieldBlur('buildCommand')}
+          {formData.buildCommand.map((command, index) => (
+            <div key={index} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+              <FormInput
+                type="text"
+                placeholder="npm install && npm run build"
+                value={command}
+                onChange={(e) => handleBuildCommandChange(index, e.target.value)}
+                onBlur={() => handleFieldBlur('buildCommand')}
+                disabled={isDeploying}
+                className={errors.buildCommand ? 'error' : ''}
+                style={{ flex: 1, marginRight: '8px' }}
+              />
+              <Button
+                type="button"
+                size="small"
+                variant="secondary"
+                onClick={() => handleRemoveBuildCommand(index)}
+                disabled={isDeploying}
+              >
+                ✕
+              </Button>
+            </div>
+          ))}
+          <Button
+            type="button"
+            size="small"
+            variant="primary"
+            onClick={handleAddBuildCommand}
             disabled={isDeploying}
-            className={errors.buildCommand ? 'error' : ''}
-          />
+          >
+            + Adicionar Comando
+          </Button>
           {errors.buildCommand && <ErrorText>⚠️ {errors.buildCommand}</ErrorText>}
           <HelpText>Comandos para instalar dependências e fazer build do projeto</HelpText>
         </FormGroup>
@@ -329,7 +377,7 @@ export const DeployForm: React.FC<DeployFormProps> = ({
               applicationPath: '',
               repoUrl: '',
               branch: 'main',
-              buildCommand: 'npm install && npm run build',
+              buildCommand: ['npm install && npm run build'],
               buildOutput: 'dist',
             });
             setErrors({});

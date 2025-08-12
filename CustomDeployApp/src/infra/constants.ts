@@ -23,13 +23,16 @@ export const API_ENDPOINTS = {
     SEARCH: '/users/search',
   },
   
-  // Deploy (exemplo para o projeto CustomDeploy)
-  DEPLOY: {
-    LIST: '/deploy',
-    CREATE: '/deploy',
-    DETAIL: (id: string) => `/deploy/${id}`,
-    STATUS: (id: string) => `/deploy/${id}/status`,
-    LOGS: (id: string) => `/deploy/${id}/logs`,
+  // Sistema (antigo Deploy Controller)
+  SYSTEM: {
+    LIST: '/api/system',
+    CREATE: '/api/system',
+    DETAIL: (id: string) => `/api/system/${id}`,
+    STATUS: (id: string) => `/api/system/${id}/status`,
+    LOGS: (id: string) => `/api/system/${id}/logs`,
+    CREDENTIALS_STATUS: '/api/system/credentials/status',
+    CREDENTIALS_TEST: '/api/system/credentials/test',
+    REPOSITORY_VALIDATE: '/api/system/repository/validate',
   },
   
   // IIS (exemplo para o projeto CustomDeploy)
@@ -157,6 +160,7 @@ export const ROUTES = {
   DASHBOARD: '/dashboard',
   USERS: '/users',
   DEPLOY: '/deploy',
+  SYSTEM: '/system',
   IIS: '/iis',
   SETTINGS: '/settings',
   PROFILE: '/profile',

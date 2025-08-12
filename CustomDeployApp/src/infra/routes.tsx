@@ -84,7 +84,7 @@ const router = createBrowserRouter([
         element: <PublicationsView />,
       },
       {
-        path: 'deploy',
+        path: 'system',
         element: <DeployView />,
       },
     ],

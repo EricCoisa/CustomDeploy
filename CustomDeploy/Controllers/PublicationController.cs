@@ -1,12 +1,12 @@
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 using CustomDeploy.Models;
 using CustomDeploy.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace CustomDeploy.Controllers
 {
     [ApiController]
-    [Route("deploy")]
+    [Route("[controller]")]
     [Authorize]
     public class PublicationController : ControllerBase
     {
@@ -24,27 +24,19 @@ namespace CustomDeploy.Controllers
         }
 
         /// <summary>
-        /// Lista todas as publicações existentes
+        /// Lista todas as publicações baseadas no IIS
         /// </summary>
-        /// <returns>Lista de publicações com informações detalhadas</returns>
+        /// <returns>Lista de publicações do IIS</returns>
         [HttpGet("publications")]
         public async Task<IActionResult> GetPublications()
         {
             try
             {
-                _logger.LogInformation("Solicitação para listar publicações recebida");
-
+                _logger.LogInformation("Solicitação para listar todas as publicações");
                 var publications = await _publicationService.GetPublicationsAsync();
-
-                var response = new
-                {
-                    message = "Publicações listadas com sucesso (IIS como fonte de verdade)",
-                    count = publications.Count,
-                    publications = publications,
-                    timestamp = DateTime.UtcNow
-                };
-
-                return Ok(response);
+                
+                _logger.LogInformation("Retornando {Count} publicações", publications.Count);
+                return Ok(publications);
             }
             catch (Exception ex)
             {
@@ -54,50 +46,42 @@ namespace CustomDeploy.Controllers
         }
 
         /// <summary>
-        /// Obtém detalhes de uma publicação específica
+        /// Obtém informações de uma publicação específica
         /// </summary>
         /// <param name="name">Nome da publicação</param>
-        /// <returns>Detalhes da publicação</returns>
+        /// <returns>Informações da publicação</returns>
         [HttpGet("publications/{name}")]
-        public async Task<IActionResult> GetPublicationByName(string name)
+        public async Task<IActionResult> GetPublication(string name)
         {
             try
             {
-                _logger.LogInformation("Solicitação para obter publicação: {Name}", name);
-
                 if (string.IsNullOrWhiteSpace(name))
                 {
                     return BadRequest(new { message = "Nome da publicação é obrigatório" });
                 }
 
-                // Decodificar URL para suportar nomes com barras (ex: carteira%2Fapi -> carteira/api)
+                // Decodificar URL para suportar nomes com barras
                 var decodedName = Uri.UnescapeDataString(name);
+                _logger.LogInformation("Buscando publicação: {Name}", decodedName);
 
                 var publication = await _publicationService.GetPublicationByNameAsync(decodedName);
-
+                
                 if (publication == null)
                 {
                     return NotFound(new { message = $"Publicação '{decodedName}' não encontrada" });
                 }
 
-                var response = new
-                {
-                    message = "Publicação encontrada",
-                    publication = publication,
-                    timestamp = DateTime.UtcNow
-                };
-
-                return Ok(response);
+                return Ok(publication);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao obter publicação: {Name}", name);
+                _logger.LogError(ex, "Erro ao buscar publicação: {Name}", name);
                 return StatusCode(500, new { message = "Erro interno do servidor", details = ex.Message });
             }
         }
 
         /// <summary>
-        /// Obtém estatísticas gerais das publicações
+        /// Obtém estatísticas das publicações
         /// </summary>
         /// <returns>Estatísticas das publicações</returns>
         [HttpGet("publications/stats")]
@@ -106,39 +90,20 @@ namespace CustomDeploy.Controllers
             try
             {
                 _logger.LogInformation("Solicitação para obter estatísticas das publicações");
-
+                
                 var publications = await _publicationService.GetPublicationsAsync();
-
-                // Separar publicações com e sem metadados
-                var withMetadata = publications.Where(p => p.HasMetadata).ToList();
-                var withoutMetadata = publications.Where(p => !p.HasMetadata).ToList();
-                var sites = publications.Where(p => p.SubApplication == null).ToList();
-                var applications = publications.Where(p => p.SubApplication != null).ToList();
-
+                
                 var stats = new
                 {
-                    totalPublications = publications.Count,
-                    sites = sites.Count,
-                    applications = applications.Count,
-                    withMetadata = withMetadata.Count,
-                    withoutMetadata = withoutMetadata.Count,
+                    total = publications.Count,
+                    sites = publications.Where(p => string.IsNullOrEmpty(p.SubApplication)).Count(),
+                    applications = publications.Where(p => !string.IsNullOrEmpty(p.SubApplication)).Count(),
+                    withMetadata = publications.Count(p => !string.IsNullOrEmpty(p.RepoUrl)),
                     totalSizeMB = Math.Round(publications.Sum(p => p.SizeMB), 2),
-                    averageSizeMB = publications.Count > 0 ? Math.Round(publications.Average(p => p.SizeMB), 2) : 0,
-                    latestDeployment = withMetadata.Where(p => p.DeployedAt.HasValue).OrderByDescending(p => p.DeployedAt).FirstOrDefault(),
-                    oldestDeployment = withMetadata.Where(p => p.DeployedAt.HasValue).OrderBy(p => p.DeployedAt).FirstOrDefault(),
-                    largestPublication = publications.OrderByDescending(p => p.SizeMB).FirstOrDefault(),
-                    smallestPublication = publications.Where(p => p.SizeMB > 0).OrderBy(p => p.SizeMB).FirstOrDefault(),
-                    sitesWithoutMetadata = withoutMetadata.Take(5).ToList()
+                    lastUpdated = DateTime.UtcNow
                 };
-
-                var response = new
-                {
-                    message = "Estatísticas obtidas com sucesso (baseadas no IIS)",
-                    stats = stats,
-                    timestamp = DateTime.UtcNow
-                };
-
-                return Ok(response);
+                
+                return Ok(stats);
             }
             catch (Exception ex)
             {
@@ -148,12 +113,12 @@ namespace CustomDeploy.Controllers
         }
 
         /// <summary>
-        /// Remove uma publicação completamente (metadados e pasta física)
+        /// Remove uma publicação completamente (pasta física)
         /// </summary>
         /// <param name="name">Nome da publicação a ser removida</param>
         /// <returns>Resultado da operação de remoção</returns>
         [HttpDelete("publications/{name}")]
-        public IActionResult DeletePublication(string name)
+        public async Task<IActionResult> DeletePublication(string name)
         {
             try
             {
@@ -168,17 +133,48 @@ namespace CustomDeploy.Controllers
                 var decodedName = Uri.UnescapeDataString(name);
                 _logger.LogInformation("Nome decodificado: {DecodedName}", decodedName);
 
-                var result = _deployService.DeletePublicationCompletely(decodedName);
-
-                if (!result.Success)
+                // Buscar a publicação pelo nome
+                var publication = await _publicationService.GetPublicationByNameAsync(decodedName);
+                if (publication == null)
                 {
-                    return NotFound(new { message = result.Message });
+                    return NotFound(new { message = $"Publicação '{decodedName}' não encontrada" });
+                }
+
+                // Tentar deletar a pasta física se existir
+                var targetPath = publication.FullPath;
+                var physicalDeletionSuccess = false;
+                var physicalDeletionMessage = "";
+
+                if (Directory.Exists(targetPath))
+                {
+                    try
+                    {
+                        _logger.LogInformation("Deletando pasta física: {TargetPath}", targetPath);
+                        Directory.Delete(targetPath, true);
+                        physicalDeletionSuccess = true;
+                        physicalDeletionMessage = "Pasta física deletada com sucesso";
+                        _logger.LogInformation("Pasta física deletada: {TargetPath}", targetPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        physicalDeletionMessage = $"Erro ao deletar pasta física: {ex.Message}";
+                        _logger.LogError(ex, "Erro ao deletar pasta física: {TargetPath}", targetPath);
+                        return StatusCode(500, new { message = physicalDeletionMessage });
+                    }
+                }
+                else
+                {
+                    physicalDeletionSuccess = true;
+                    physicalDeletionMessage = "Pasta física não existe (já removida ou não encontrada)";
+                    _logger.LogInformation("Pasta física não encontrada: {TargetPath}", targetPath);
                 }
 
                 var response = new
                 {
-                    message = result.Message,
+                    message = $"Publicação '{decodedName}' removida com sucesso. {physicalDeletionMessage}",
                     name = decodedName,
+                    physicalPath = targetPath,
+                    physicalDeletionSuccess = physicalDeletionSuccess,
                     timestamp = DateTime.UtcNow
                 };
 
@@ -192,377 +188,48 @@ namespace CustomDeploy.Controllers
         }
 
         /// <summary>
-        /// Remove apenas os metadados de uma publicação (mantém a pasta física)
+        /// Executa um redeploy de uma publicação existente
         /// </summary>
         /// <param name="name">Nome da publicação</param>
-        /// <returns>Resultado da operação de remoção</returns>
-        [HttpDelete("publications/{name}/metadata-only")]
-        public IActionResult DeletePublicationMetadataOnly(string name)
+        /// <returns>Resultado do redeploy</returns>
+        [HttpPost("publications/{name}/redeploy")]
+        public async Task<IActionResult> RedeployPublication(string name)
         {
             try
             {
-                _logger.LogInformation("Solicitação para remover apenas metadados da publicação: {Name}", name);
-
                 if (string.IsNullOrWhiteSpace(name))
                 {
                     return BadRequest(new { message = "Nome da publicação é obrigatório" });
                 }
 
-                // Decodificar URL para suportar nomes com barras (ex: carteira%2Fapi -> carteira/api)
                 var decodedName = Uri.UnescapeDataString(name);
-                _logger.LogInformation("Nome decodificado: {DecodedName}", decodedName);
+                _logger.LogInformation("Solicitação de redeploy para: {Name}", decodedName);
 
-                var result = _deployService.RemoveDeployMetadata(decodedName);
-
-                if (!result.Success)
+                // Buscar a publicação
+                var publication = await _publicationService.GetPublicationByNameAsync(decodedName);
+                if (publication == null)
                 {
-                    return NotFound(new { message = result.Message });
+                    return NotFound(new { message = $"Publicação '{decodedName}' não encontrada" });
                 }
 
-                var response = new
-                {
-                    message = $"Metadados removidos (pasta física mantida): {result.Message}",
-                    name = decodedName,
-                    timestamp = DateTime.UtcNow
-                };
-
-                return Ok(response);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao remover metadados da publicação: {Name}", name);
-                return StatusCode(500, new { message = "Erro interno do servidor", details = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Obtém detalhes específicos de um deploy pelos metadados
-        /// </summary>
-        /// <param name="name">Nome do deploy</param>
-        /// <returns>Metadados do deploy com status de existência atualizado</returns>
-        [HttpGet("publications/{name}/metadata")]
-        public IActionResult GetDeployMetadata(string name)
-        {
-            try
-            {
-                _logger.LogInformation("Solicitação para obter metadados do deploy: {Name}", name);
-
-                if (string.IsNullOrWhiteSpace(name))
-                {
-                    return BadRequest(new { message = "Nome do deploy é obrigatório" });
-                }
-
-                // Decodificar URL para suportar nomes com barras (ex: carteira%2Fapi -> carteira/api)
-                var decodedName = Uri.UnescapeDataString(name);
-                _logger.LogInformation("Nome decodificado: {DecodedName}", decodedName);
-
-                var result = _deployService.GetDeployMetadata(decodedName);
-
-                if (!result.Success)
-                {
-                    return NotFound(new { message = result.Message });
-                }
-
-                var response = new
-                {
-                    message = "Metadados encontrados",
-                    metadata = result.Deploy,
-                    timestamp = DateTime.UtcNow
-                };
-
-                return Ok(response);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao obter metadados do deploy: {Name}", name);
-                return StatusCode(500, new { message = "Erro interno do servidor", details = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Atualiza metadados específicos de uma publicação (Repository, Branch, BuildCommand)
-        /// </summary>
-        /// <param name="name">Nome da publicação</param>
-        /// <param name="request">Dados para atualização</param>
-        /// <returns>Metadados atualizados</returns>
-        [HttpPatch("publications/{name}/metadata")]
-        public IActionResult UpdatePublicationMetadata(string name, [FromBody] UpdateMetadataRequest request)
-        {
-            try
-            {
-                _logger.LogInformation("Solicitação para atualizar metadados da publicação: {Name}", name);
-
-                if (string.IsNullOrWhiteSpace(name))
-                {
-                    return BadRequest(new { message = "Nome da publicação é obrigatório" });
-                }
-
-                if (request == null)
-                {
-                    return BadRequest(new { message = "Dados para atualização são obrigatórios" });
-                }
-
-                // Validar se pelo menos um campo foi fornecido
-                if (string.IsNullOrWhiteSpace(request.Repository) && 
-                    string.IsNullOrWhiteSpace(request.Branch) && 
-                    string.IsNullOrWhiteSpace(request.BuildCommand))
+                // Verificar se tem informações de repositório
+                if (string.IsNullOrWhiteSpace(publication.Repository) || 
+                    publication.Repository == "N/A")
                 {
                     return BadRequest(new { 
-                        message = "Pelo menos um campo deve ser fornecido para atualização",
-                        allowedFields = new[] { "repository", "branch", "buildCommand" }
+                        message = "Publicação não possui informações de repositório para redeploy",
+                        name = decodedName 
                     });
                 }
 
-                // Decodificar URL para suportar nomes com barras (ex: carteira%2Fapi -> carteira/api)
-                var decodedName = Uri.UnescapeDataString(name);
-                _logger.LogInformation("Nome decodificado: {DecodedName}", decodedName);
-
-                var result = _deployService.UpdateDeployMetadata(
-                    decodedName, 
-                    request.Repository, 
-                    request.Branch, 
-                    request.BuildCommand,
-                    request.BuildOutput);
-
-                if (!result.Success)
-                {
-                    if (result.Message.Contains("não encontrado"))
-                    {
-                        return NotFound(new { message = result.Message });
-                    }
-                    return BadRequest(new { message = result.Message });
-                }
-
-                var response = new
-                {
-                    message = "Metadados atualizados com sucesso",
-                    details = result.Message,
-                    updatedMetadata = result.UpdatedDeploy,
-                    timestamp = DateTime.UtcNow
-                };
-
-                return Ok(response);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao atualizar metadados da publicação: {Name}", name);
-                return StatusCode(500, new { message = "Erro interno do servidor", details = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Cria metadados para uma publicação sem executar deploy
-        /// </summary>
-        /// <param name="request">Dados dos metadados a serem criados</param>
-        /// <returns>Metadados criados</returns>
-        [HttpPost("publications/metadata")]
-        public async Task<IActionResult> CreateMetadados([FromBody] CreateMetadataRequest request)
-        {
-            try
-            {
-                _logger.LogInformation("Solicitação para criar metadados: {IisSiteName}/{SubPath}", 
-                    request.IisSiteName, request.SubPath ?? "");
-
-                // Validar dados obrigatórios
-                if (request == null)
-                {
-                    return BadRequest(new { message = "Dados são obrigatórios" });
-                }
-
-                if (string.IsNullOrWhiteSpace(request.IisSiteName))
-                {
-                    return BadRequest(new { message = "IisSiteName é obrigatório" });
-                }
-
-                if (string.IsNullOrWhiteSpace(request.RepoUrl))
-                {
-                    return BadRequest(new { message = "RepoUrl é obrigatório" });
-                }
-
-                if (string.IsNullOrWhiteSpace(request.Branch))
-                {
-                    return BadRequest(new { message = "Branch é obrigatório" });
-                }
-
-                if (string.IsNullOrWhiteSpace(request.BuildCommand))
-                {
-                    return BadRequest(new { message = "BuildCommand é obrigatório" });
-                }
-
-                if (string.IsNullOrWhiteSpace(request.BuildOutput))
-                {
-                    return BadRequest(new { message = "BuildOutput é obrigatório" });
-                }
-
-                // Verificar se o site existe no IIS
-                var sitesResult = await _iisManagementService.GetAllSitesAsync();
-                if (!sitesResult.Success)
-                {
-                    return StatusCode(500, new { message = "Erro ao verificar sites no IIS", details = sitesResult.Message });
-                }
-
-                var targetSite = sitesResult.Sites.FirstOrDefault(s => 
-                {
-                    var siteData = System.Text.Json.JsonSerializer.Serialize(s);
-                    var siteInfo = System.Text.Json.JsonSerializer.Deserialize<SiteInfo>(siteData);
-                    return string.Equals(siteInfo?.Name, request.IisSiteName, StringComparison.OrdinalIgnoreCase);
+                return BadRequest(new { 
+                    message = "Funcionalidade de redeploy ainda não implementada após migração para banco de dados",
+                    name = decodedName 
                 });
-
-                if (targetSite == null)
-                {
-                    return BadRequest(new { message = $"Site IIS '{request.IisSiteName}' não encontrado" });
-                }
-
-                // Deserializar informações do site
-                var siteJson = System.Text.Json.JsonSerializer.Serialize(targetSite);
-                var siteInfo = System.Text.Json.JsonSerializer.Deserialize<SiteInfo>(siteJson);
-
-                if (siteInfo == null)
-                {
-                    return StatusCode(500, new { message = "Erro ao processar informações do site IIS" });
-                }
-
-                // Construir o caminho de destino
-                string targetPath = siteInfo.PhysicalPath;
-                string metadataName = request.IisSiteName;
-
-                // Se há subPath, verificar se existe como aplicação no IIS
-                if (!string.IsNullOrWhiteSpace(request.SubPath))
-                {
-                    var appsResult = await _iisManagementService.GetSiteApplicationsAsync(request.IisSiteName);
-                    if (appsResult.Success)
-                    {
-                        var applications = appsResult.Data as List<object> ?? new List<object>();
-                        var targetApp = applications.FirstOrDefault(a =>
-                        {
-                            var appData = System.Text.Json.JsonSerializer.Serialize(a);
-                            var appInfo = System.Text.Json.JsonSerializer.Deserialize<ApplicationInfo>(appData);
-                            var appPath = appInfo?.Name?.TrimStart('/');
-                            return string.Equals(appPath, request.SubPath, StringComparison.OrdinalIgnoreCase);
-                        });
-
-                        if (targetApp != null)
-                        {
-                            // É uma aplicação IIS existente
-                            var appJson = System.Text.Json.JsonSerializer.Serialize(targetApp);
-                            var appInfo = System.Text.Json.JsonSerializer.Deserialize<ApplicationInfo>(appJson);
-                            targetPath = appInfo?.PhysicalPath ?? Path.Combine(targetPath, request.SubPath);
-                            metadataName = $"{request.IisSiteName}/{request.SubPath}";
-                        }
-                        else
-                        {
-                            // Não é aplicação IIS, será um subdiretório
-                            targetPath = Path.Combine(targetPath, request.SubPath);
-                            metadataName = $"{request.IisSiteName}/{request.SubPath}";
-                        }
-                    }
-                    else
-                    {
-                        // Assumir como subdiretório
-                        targetPath = Path.Combine(targetPath, request.SubPath);
-                        metadataName = $"{request.IisSiteName}/{request.SubPath}";
-                    }
-                }
-
-                // Verificar se já existe metadado para este nome/caminho
-                var existingMetadata = _deployService.GetAllDeployMetadata();
-                var duplicateByName = existingMetadata.FirstOrDefault(m => 
-                    string.Equals(m.Name, metadataName, StringComparison.OrdinalIgnoreCase));
-
-                var duplicateByPath = existingMetadata.FirstOrDefault(m => 
-                    string.Equals(Path.GetFullPath(m.TargetPath), Path.GetFullPath(targetPath), StringComparison.OrdinalIgnoreCase));
-
-                if (duplicateByName != null)
-                {
-                    return BadRequest(new { 
-                        message = $"Já existe um metadado registrado com o nome '{metadataName}'",
-                        existingMetadata = duplicateByName
-                    });
-                }
-
-                if (duplicateByPath != null)
-                {
-                    return BadRequest(new { 
-                        message = $"Já existe um metadado registrado para o caminho '{targetPath}'",
-                        existingMetadata = duplicateByPath
-                    });
-                }
-
-                // Criar novo metadado usando o DeployService
-                var metadataResult = _deployService.CreateMetadataOnly(
-                    metadataName,
-                    request.RepoUrl,
-                    request.Branch,
-                    request.BuildCommand,
-                    request.BuildOutput,
-                    targetPath
-                );
-
-                if (!metadataResult.Success)
-                {
-                    return BadRequest(new { message = metadataResult.Message });
-                }
-
-                _logger.LogInformation("Metadados criados com sucesso: {Name} -> {TargetPath}", 
-                    metadataName, targetPath);
-
-                var response = new
-                {
-                    repoUrl = request.RepoUrl,
-                    branch = request.Branch,
-                    buildCommand = request.BuildCommand,
-                    buildOutput = request.BuildOutput,
-                    targetPath = targetPath,
-                    iisSiteName = request.IisSiteName,
-                    subPath = request.SubPath,
-                    exists = metadataResult.Metadata?.Exists ?? false,
-                    name = metadataName,
-                    timestamp = DateTime.UtcNow
-                };
-
-                return Ok(response);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao criar metadados");
-                return StatusCode(500, new { message = "Erro interno do servidor", details = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Testa o sistema de metadados e força a criação do arquivo deploys.json
-        /// </summary>
-        /// <returns>Informações sobre o teste do sistema</returns>
-        [HttpGet("test-metadata")]
-        public IActionResult TestMetadataSystem()
-        {
-            try
-            {
-                _logger.LogInformation("Endpoint de teste do sistema de metadados chamado");
-
-                var testResult = _deployService.TestMetadataSystem();
-
-                var response = new
-                {
-                    success = testResult.Success,
-                    message = testResult.Message,
-                    filePath = testResult.FilePath,
-                    fileExists = System.IO.File.Exists(testResult.FilePath),
-                    timestamp = DateTime.UtcNow
-                };
-
-                if (testResult.Success)
-                {
-                    return Ok(response);
-                }
-                else
-                {
-                    return StatusCode(500, response);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro no endpoint de teste do sistema de metadados");
+                _logger.LogError(ex, "Erro durante redeploy da publicação: {Name}", name);
                 return StatusCode(500, new { message = "Erro interno do servidor", details = ex.Message });
             }
         }

@@ -24,7 +24,7 @@ export interface DeployFormData {
   applicationPath: string;
   repoUrl: string;
   branch: string;
-  buildCommand: string;
+  buildCommand: string[];
   buildOutput: string;
 }
 

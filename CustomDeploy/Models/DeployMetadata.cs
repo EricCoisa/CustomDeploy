@@ -5,7 +5,7 @@ namespace CustomDeploy.Models
         public string Name { get; set; } = string.Empty;
         public string Repository { get; set; } = string.Empty;
         public string Branch { get; set; } = string.Empty;
-        public string BuildCommand { get; set; } = string.Empty;
+        public string[] BuildCommands { get; set; } = Array.Empty<string>();
         public string BuildOutput { get; set; } = string.Empty;
         public string TargetPath { get; set; } = string.Empty;
         public DateTime DeployedAt { get; set; }

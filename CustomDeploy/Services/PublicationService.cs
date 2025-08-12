@@ -38,13 +38,7 @@ namespace CustomDeploy.Services
 
                 _logger.LogInformation("Sites encontrados no IIS: {Count}", sitesResult.Sites.Count);
 
-                // 2. Carregar metadados existentes
-                var allMetadata = _deployService.GetAllDeployMetadata();
-                var metadataDict = CreateMetadataLookup(allMetadata);
-
-                _logger.LogInformation("Metadados carregados: {Count}", allMetadata.Count);
-
-                // 3. Processar cada site
+                // 2. Processar cada site
                 foreach (var siteObj in sitesResult.Sites)
                 {
                     try
@@ -65,11 +59,11 @@ namespace CustomDeploy.Services
                         _logger.LogInformation("Site deserializado: Name='{Name}', ID={Id}, Path='{Path}'", 
                             site.Name ?? "NULL", site.Id, site.PhysicalPath ?? "NULL");
 
-                        // 3.1. Adicionar o site raiz
-                        var sitePublication = await CreatePublicationFromSite(site, null, metadataDict);
+                        // 2.1. Adicionar o site raiz
+                        var sitePublication = await CreatePublicationFromSite(site, null);
                         publications.Add(sitePublication);
 
-                        // 3.2. Obter aplicações do site
+                        // 2.2. Obter aplicações do site
                         var appsResult = await _iisManagementService.GetSiteApplicationsAsync(site.Name);
                         if (appsResult.Success)
                         {
@@ -87,7 +81,7 @@ namespace CustomDeploy.Services
                                     var cleanAppName = app.Name.TrimStart('/');
                                     if (string.IsNullOrWhiteSpace(cleanAppName)) continue;
 
-                                    var appPublication = await CreatePublicationFromSite(site, app, metadataDict);
+                                    var appPublication = await CreatePublicationFromSite(site, app);
                                     publications.Add(appPublication);
                                 }
                                 catch (Exception ex)
@@ -114,41 +108,11 @@ namespace CustomDeploy.Services
         }
 
         /// <summary>
-        /// Cria um dicionário de lookup para metadados baseado no caminho físico e nome
-        /// </summary>
-        private Dictionary<string, DeployMetadata> CreateMetadataLookup(List<DeployMetadata> allMetadata)
-        {
-            var dict = new Dictionary<string, DeployMetadata>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var metadata in allMetadata)
-            {
-                // Adicionar por caminho físico
-                dict.TryAdd(Path.GetFullPath(metadata.TargetPath), metadata);
-                
-                // Adicionar por nome também (para lookup direto)
-                dict.TryAdd(metadata.Name, metadata);
-                
-                // Adicionar variações do nome para compatibilidade
-                var normalizedName = metadata.Name.TrimEnd('/', '\\');
-                var nameWithSlash = normalizedName + "/";
-                
-                if (!dict.ContainsKey(normalizedName))
-                    dict.TryAdd(normalizedName, metadata);
-                    
-                if (!dict.ContainsKey(nameWithSlash))
-                    dict.TryAdd(nameWithSlash, metadata);
-            }
-
-            return dict;
-        }
-
-        /// <summary>
-        /// Cria uma publicação baseada em informações do IIS e metadados
+        /// Cria uma publicação baseada em informações do IIS
         /// </summary>
         private async Task<IISBasedPublication> CreatePublicationFromSite(
             SiteInfo site, 
-            ApplicationInfo? app, 
-            Dictionary<string, DeployMetadata> metadataDict)
+            ApplicationInfo? app)
         {
             var publication = new IISBasedPublication
             {
@@ -171,34 +135,6 @@ namespace CustomDeploy.Services
             else
             {
                 publication.FullPath = site.PhysicalPath;
-            }
-
-            // Buscar metadados por várias chaves possíveis
-            DeployMetadata? metadata = null;
-            
-            // Tentar por caminho físico
-            metadataDict.TryGetValue(publication.FullPath, out metadata);
-            
-            // Tentar por nome (site ou site/app)
-            if (metadata == null)
-            {
-                metadataDict.TryGetValue(publication.Name, out metadata);
-            }
-
-            // Tentar por nome do site apenas
-            if (metadata == null && app != null)
-            {
-                metadataDict.TryGetValue(site.Name, out metadata);
-            }
-
-            // Aplicar metadados se encontrados
-            if (metadata != null)
-            {
-                publication.RepoUrl = metadata.Repository;
-                publication.Branch = metadata.Branch;
-                publication.BuildCommand = metadata.BuildCommand;
-                publication.BuildOutput = metadata.BuildOutput;
-                publication.DeployedAt = metadata.DeployedAt;
             }
 
             // Calcular informações do diretório físico

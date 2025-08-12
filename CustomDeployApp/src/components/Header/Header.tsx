@@ -177,10 +177,10 @@ export const Header: React.FC<HeaderProps> = ({
                 📦 Publicações
               </NavLink>
               <NavLink 
-                to="/deploy" 
-                $isActive={location.pathname === '/deploy'}
+                to="/system" 
+                $isActive={location.pathname === '/system'}
               >
-                🚀 Deploy
+                🚀 Sistema
               </NavLink>
               <NavLink 
                 to="/test" 
