@@ -39,7 +39,7 @@ namespace CustomDeploy.Controllers
                 // Validação básica
                 if (string.IsNullOrWhiteSpace(request.RepoUrl) ||
                     string.IsNullOrWhiteSpace(request.Branch) ||
-                    request.BuildCommands == null || request.BuildCommands.Length == 0 ||
+                    request.BuildCommand == null || request.BuildCommand.Length == 0 ||
                     string.IsNullOrWhiteSpace(request.BuildOutput) ||
                     string.IsNullOrWhiteSpace(request.IisSiteName))
                 {
@@ -59,7 +59,7 @@ namespace CustomDeploy.Controllers
                         message = result.Message,
                         repository = request.RepoUrl,
                         branch = request.Branch,
-                        buildCommands = request.BuildCommands,
+                        buildCommands = request.BuildCommand,
                         buildOutput = request.BuildOutput,
                         targetPath = request.TargetPath,
                         iisSiteName = request.IisSiteName,

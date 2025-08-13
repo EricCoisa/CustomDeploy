@@ -212,14 +212,26 @@ namespace CustomDeploy.Services
         {
             try
             {
-                var deploy = (await _deployService.ObterDeploysPorSiteAsync(publication.Name)).LastOrDefault();
+                var deploys = await _deployService.ObterDeploysPorSiteAsync(publication.Name);
+                // Pegar o deploy mais recente pela data
+                var deploy = deploys
+                    .OrderByDescending(d => d.Data)
+                    .FirstOrDefault();
+
                 if (deploy != null)
                 {
                     publication.RepoUrl = deploy.RepoUrl;
                     publication.Branch = deploy.Branch;
-                    publication.BuildCommand = deploy.DeployComandos.Select(dc => dc.Comando).ToArray();
+                    publication.BuildCommand = deploy.DeployComandos;
                     publication.BuildOutput = deploy.BuildOutput;
                     publication.DeployedAt = deploy.Data;
+
+                    _logger.LogDebug("Deploy mais recente encontrado para {Site}: ID={DeployId}, Data={Data}", 
+                        publication.Name, deploy.Id, deploy.Data);
+                }
+                else
+                {
+                    _logger.LogDebug("Nenhum deploy encontrado para {Site}", publication.Name);
                 }
             }
             catch (Exception ex)
@@ -242,7 +254,7 @@ namespace CustomDeploy.Services
                 Name = publication.Name,
                 Repository = publication.RepoUrl ?? "N/A",
                 Branch = publication.Branch ?? "N/A",
-                BuildCommand = publication.BuildCommand ?? new[] { "N/A" },
+                BuildCommand = publication.BuildCommand,
                 FullPath = publication.FullPath,
                 DeployedAt = publication.DeployedAt ?? DateTime.MinValue,
                 Exists = publication.Exists,

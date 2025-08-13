@@ -14,6 +14,7 @@ namespace CustomDeploy.Data.Repositories
         {
             return await _dbSet
                 .Include(d => d.Usuario)
+                .Include(d => d.DeployComandos.OrderBy(dc => dc.Ordem))
                 .Where(d => d.SiteName.ToLower() == siteName.ToLower())
                 .OrderByDescending(d => d.Data)
                 .ToListAsync();
@@ -23,6 +24,7 @@ namespace CustomDeploy.Data.Repositories
         {
             return await _dbSet
                 .Include(d => d.Usuario)
+                .Include(d => d.DeployComandos.OrderBy(dc => dc.Ordem))
                 .Where(d => d.UsuarioId == usuarioId)
                 .OrderByDescending(d => d.Data)
                 .ToListAsync();
@@ -32,6 +34,7 @@ namespace CustomDeploy.Data.Repositories
         {
             return await _dbSet
                 .Include(d => d.Usuario)
+                .Include(d => d.DeployComandos.OrderBy(dc => dc.Ordem))
                 .Where(d => d.Status.ToLower() == status.ToLower())
                 .OrderByDescending(d => d.Data)
                 .ToListAsync();
@@ -41,6 +44,7 @@ namespace CustomDeploy.Data.Repositories
         {
             return await _dbSet
                 .Include(d => d.Usuario)
+                .Include(d => d.DeployComandos.OrderBy(dc => dc.Ordem))
                 .Where(d => d.Data >= startDate && d.Data <= endDate)
                 .OrderByDescending(d => d.Data)
                 .ToListAsync();
@@ -58,6 +62,7 @@ namespace CustomDeploy.Data.Repositories
         {
             return await _dbSet
                 .Include(d => d.Usuario)
+                .Include(d => d.DeployComandos.OrderBy(dc => dc.Ordem))
                 .Include(d => d.DeployHistoricos.OrderByDescending(dh => dh.Data))
                 .FirstOrDefaultAsync(d => d.Id == deployId);
         }
@@ -77,6 +82,7 @@ namespace CustomDeploy.Data.Repositories
         {
             return await _dbSet
                 .Include(d => d.Usuario)
+                .Include(d => d.DeployComandos.OrderBy(dc => dc.Ordem))
                 .OrderByDescending(d => d.Data)
                 .Take(count)
                 .ToListAsync();
@@ -86,6 +92,7 @@ namespace CustomDeploy.Data.Repositories
         {
             return await _dbSet
                 .Include(d => d.Usuario)
+                .Include(d => d.DeployComandos.OrderBy(dc => dc.Ordem))
                 .FirstOrDefaultAsync(d => d.Id == id);
         }
 
@@ -93,6 +100,7 @@ namespace CustomDeploy.Data.Repositories
         {
             return await _dbSet
                 .Include(d => d.Usuario)
+                .Include(d => d.DeployComandos.OrderBy(dc => dc.Ordem))
                 .OrderByDescending(d => d.Data)
                 .ToListAsync();
         }

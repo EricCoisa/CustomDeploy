@@ -11,9 +11,22 @@ namespace CustomDeploy.Models.DTOs
         [StringLength(200, ErrorMessage = "Nome da aplicação deve ter no máximo 200 caracteres")]
         public string? ApplicationName { get; set; }
 
+        [Required(ErrorMessage = "URL do repositório é obrigatória")]
+        [StringLength(500, ErrorMessage = "URL do repositório deve ter no máximo 500 caracteres")]
+        public string RepoUrl { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Branch é obrigatória")]
+        [StringLength(100, ErrorMessage = "Branch deve ter no máximo 100 caracteres")]
+        public string Branch { get; set; } = "main";
+
         [Required(ErrorMessage = "Comandos são obrigatórios")]
         [MinLength(1, ErrorMessage = "Deve haver pelo menos um comando")]
-        public string[] Comandos { get; set; } = Array.Empty<string>();
+        public BuildCommand[] BuildCommand { get; set; } = Array.Empty<BuildCommand>();
+
+
+        [Required(ErrorMessage = "Saída do build é obrigatória")]
+        [StringLength(200, ErrorMessage = "Saída do build deve ter no máximo 200 caracteres")]
+        public string BuildOutput { get; set; } = "dist";
 
         [StringLength(100, ErrorMessage = "Plataforma deve ter no máximo 100 caracteres")]
         public string? Plataforma { get; set; }
@@ -31,7 +44,7 @@ namespace CustomDeploy.Models.DTOs
 
         [Required(ErrorMessage = "Comandos de build são obrigatórios")]
         [MinLength(1, ErrorMessage = "Deve haver pelo menos um comando de build")]
-        public string[] BuildCommands { get; set; } = Array.Empty<string>();
+        public BuildCommand[] BuildCommand { get; set; } = Array.Empty<BuildCommand>();
 
         [Required(ErrorMessage = "Saída do build é obrigatória")]
         [StringLength(200, ErrorMessage = "Saída do build deve ter no máximo 200 caracteres")]
@@ -77,7 +90,7 @@ namespace CustomDeploy.Models.DTOs
         // Dados do deploy no IIS (se aplicável)
         public string? RepoUrl { get; set; }
         public string? Branch { get; set; }
-        public string[]? BuildCommands { get; set; }
+        public BuildCommand[]? BuildCommands { get; set; }
         public string? BuildOutput { get; set; }
         public string? TargetPath { get; set; }
         public string? ApplicationPath { get; set; }
@@ -93,6 +106,7 @@ namespace CustomDeploy.Models.DTOs
         public string? Status { get; set; }
         public string? Mensagem { get; set; }
         public DateTime? ExecutadoEm { get; set; }
+        public string? TerminalId { get; set; } // Adicionado o campo TerminalId
     }
 
     public class DeployHistoricoResponse
@@ -112,5 +126,13 @@ namespace CustomDeploy.Models.DTOs
         public string Status { get; set; } = string.Empty;
         public string UsuarioNome { get; set; } = string.Empty;
         public string? Plataforma { get; set; }
+    }
+
+    public class BuildCommand
+    {
+        public string Comando { get; set; } = string.Empty;
+        public string? TerminalId { get; set; }
+        public int Ordem { get; set; }
+        public string? Status { get; set; } = string.Empty;
     }
 }

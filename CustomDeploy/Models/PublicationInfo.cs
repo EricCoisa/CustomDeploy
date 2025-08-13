@@ -1,3 +1,5 @@
+using CustomDeploy.Models.Entities;
+
 namespace CustomDeploy.Models
 {
     public class PublicationInfo
@@ -11,7 +13,8 @@ namespace CustomDeploy.Models
         // Metadados do deploy
         public string? Repository { get; set; }
         public string? Branch { get; set; }
-        public string[]? BuildCommand { get; set; }
+        public ICollection<DeployComando>? BuildCommand { get; set; }
+
         public DateTime? DeployedAt { get; set; }
 
         /// <summary>

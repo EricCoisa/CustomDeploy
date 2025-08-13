@@ -62,7 +62,7 @@ namespace CustomDeploy.Data.Configurations
                 .OnDelete(DeleteBehavior.Restrict);
 
             builder.HasMany(d => d.DeployComandos)
-                .WithOne(dc => dc.Deploy)
+                .WithOne()
                 .HasForeignKey(dc => dc.DeployId)
                 .OnDelete(DeleteBehavior.Cascade);
 

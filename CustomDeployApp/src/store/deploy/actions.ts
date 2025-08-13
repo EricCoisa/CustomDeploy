@@ -1,5 +1,6 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
-import { deployService, type DeployRequest } from '../../services/deployService';
+import { deployService, type BuildCommand, type DeployRequest } from '../../services/deployService';
+import { type DeployResult } from './types';
 
 // Executar deploy
 export const executeDeploy = createAsyncThunk(
@@ -13,18 +14,20 @@ export const executeDeploy = createAsyncThunk(
         return rejectWithValue(response.data || 'Erro ao executar deploy');
       }
       
-      return {
+      // Converter os dados da resposta para o formato esperado pelo DeployResult
+      const result: DeployResult = {
         success: true,
         message: response.data.message,
         repository: response.data.repository,
         branch: response.data.branch,
-        buildCommand: response.data.buildCommand,
+        buildCommand: (response.data.buildCommand as BuildCommand[]) || [], // Garantir o tipo correto
         buildOutput: response.data.buildOutput,
         targetPath: response.data.targetPath,
         iisSiteName: response.data.iisSiteName,
         timestamp: response.data.timestamp,
         deployDetails: response.data.deployDetails,
       };
+      return result;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Erro ao executar deploy';
       return rejectWithValue(errorMessage);

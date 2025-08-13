@@ -4,6 +4,7 @@ using CustomDeploy.Data;
 using CustomDeploy.Models;
 using CustomDeploy.Services;
 using Microsoft.EntityFrameworkCore;
+using CustomDeploy.Models.DTOs;
 
 namespace CustomDeploy.Services.Business
 {
@@ -15,6 +16,7 @@ namespace CustomDeploy.Services.Business
         private readonly DeployService _legacyDeployService; // Serviço original
         private readonly ILogger<DeployBusinessService> _logger;
         private readonly GitHubService _gitHubService; // Adicionado o GitHubService
+        private readonly IISManagementService _iisManagementService; // Adicionado IISManagementService
 
         public DeployBusinessService(
             IDeployRepository deployRepository,
@@ -22,7 +24,8 @@ namespace CustomDeploy.Services.Business
             CustomDeployDbContext context,
             DeployService legacyDeployService,
             ILogger<DeployBusinessService> logger,
-            GitHubService gitHubService) // Injetado o GitHubService
+            GitHubService gitHubService,
+            IISManagementService iisManagementService) // Injetado IISManagementService
         {
             _deployRepository = deployRepository;
             _usuarioRepository = usuarioRepository;
@@ -30,10 +33,11 @@ namespace CustomDeploy.Services.Business
             _legacyDeployService = legacyDeployService;
             _logger = logger;
             _gitHubService = gitHubService; // Atribuído o GitHubService
+            _iisManagementService = iisManagementService; // Atribuído o IISManagementService
         }
 
-        public async Task<Deploy> CriarDeployAsync(string siteName, string? applicationName, int usuarioId, 
-            string[] comandos, string? plataforma = null)
+        public async Task<Deploy> CriarDeployAsync(string siteName, string? applicationName, int usuarioId,
+            BuildCommand[] BuildCommands, string repoUrl, string branch = "main", string buildOutput = "dist", string? plataforma = null)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             
@@ -49,6 +53,9 @@ namespace CustomDeploy.Services.Business
                 // Criar o deploy
                 var deploy = new Deploy
                 {
+                    RepoUrl = repoUrl,
+                    Branch = branch,
+                    BuildOutput = buildOutput,
                     SiteName = siteName,
                     ApplicationName = applicationName,
                     UsuarioId = usuarioId,
@@ -57,20 +64,23 @@ namespace CustomDeploy.Services.Business
                     Data = DateTime.UtcNow
                 };
 
+                
+
                 await _deployRepository.AddAsync(deploy);
                 await _deployRepository.SaveChangesAsync();
 
                 // Adicionar comandos
-                for (int i = 0; i < comandos.Length; i++)
+                foreach (var comando in BuildCommands)
                 {
-                    var comando = new DeployComando
+                    var deployComando = new DeployComando
                     {
                         DeployId = deploy.Id,
-                        Comando = comandos[i],
-                        Ordem = i + 1
+                        Comando = comando.Comando,
+                        Ordem = comando.Ordem,
+                        TerminalId = comando.TerminalId
                     };
-                    
-                    _context.DeployComandos.Add(comando);
+
+                    _context.DeployComandos.Add(deployComando);
                 }
 
                 // Adicionar histórico inicial
@@ -178,7 +188,7 @@ namespace CustomDeploy.Services.Business
             }
         }
 
-        public async Task<bool> AdicionarComandoAsync(int deployId, string comando, int ordem)
+        public async Task<bool> AdicionarComandoAsync(int deployId, string comando, int ordem, string terminalId = "1")
         {
             try
             {
@@ -192,7 +202,8 @@ namespace CustomDeploy.Services.Business
                 {
                     DeployId = deployId,
                     Comando = comando,
-                    Ordem = ordem
+                    Ordem = ordem,
+                    TerminalId = terminalId
                 };
 
                 _context.DeployComandos.Add(deployComando);
@@ -272,13 +283,86 @@ namespace CustomDeploy.Services.Business
                 }
 
                 // 2. Determinar nome da aplicação baseado no parsing do IisSiteName
-                var (siteName, applicationName) = ParseSiteAndApplication(deployRequest.IisSiteName, deployRequest.ApplicationPath);
-                
+                var (siteName, applicationPath) = ParseSiteAndApplication(deployRequest.IisSiteName, deployRequest.ApplicationPath);
+                _logger.LogInformation("Site parseado: {SiteName}, Aplicação: {ApplicationPath}", 
+                    siteName, applicationPath ?? "nenhuma");
+
+                // 2.1 Verificar se o site IIS existe e obter informações
+                var siteResult = await _iisManagementService.GetSiteInfoAsync(siteName);
+                if (!siteResult.Success)
+                {
+                    throw new InvalidOperationException($"Site não encontrado no IIS: {siteName}. {siteResult.Message}");
+                }
+
+                var sitePhysicalPath = siteResult.PhysicalPath;
+                _logger.LogInformation("Site IIS encontrado: {SiteName}, Caminho físico: {PhysicalPath}", 
+                    siteName, sitePhysicalPath);
+
+                // 2.2 Determinar caminho final baseado na aplicação parseada
+                string finalTargetPath;
+                if (!string.IsNullOrWhiteSpace(applicationPath))
+                {
+                    finalTargetPath = Path.Combine(sitePhysicalPath, applicationPath);
+                    
+                    if (!string.IsNullOrWhiteSpace(deployRequest.TargetPath) && 
+                        !string.Equals(deployRequest.TargetPath, applicationPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        finalTargetPath = Path.Combine(finalTargetPath, deployRequest.TargetPath);
+                        _logger.LogInformation("Combinando caminhos: {ApplicationPath} + {TargetPath}", 
+                            applicationPath, deployRequest.TargetPath);
+                    }
+                }
+                else
+                {
+                    finalTargetPath = Path.Combine(sitePhysicalPath, deployRequest.TargetPath ?? string.Empty);
+                }
+
+                // 2.3 Verificar se a aplicação parseada existe no IIS
+                if (!string.IsNullOrWhiteSpace(applicationPath))
+                {
+                    var appResult = await _iisManagementService.CheckApplicationExistsAsync(siteName, applicationPath);
+                    if (appResult.Success)
+                    {
+                        if (appResult.ApplicationExists)
+                        {
+                            _logger.LogInformation("Aplicação IIS encontrada: {SiteName}/{ApplicationPath}", 
+                                siteName, applicationPath);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Aplicação '{ApplicationPath}' não existe como subaplicação no IIS, será tratada como pasta.", 
+                                applicationPath);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Erro ao verificar aplicação IIS: {Message}", appResult.Message);
+                    }
+                }
+
+                // 2.4 Verificar targetPath adicional como aplicação IIS (se diferente da aplicação principal)
+                if (!string.IsNullOrWhiteSpace(deployRequest.TargetPath) && deployRequest.TargetPath != applicationPath)
+                {
+                    var targetCheckPath = !string.IsNullOrWhiteSpace(applicationPath) 
+                        ? $"{applicationPath}/{deployRequest.TargetPath}"
+                        : deployRequest.TargetPath;
+                        
+                    var appResult = await _iisManagementService.CheckApplicationExistsAsync(siteName, targetCheckPath);
+                    if (appResult.Success && appResult.ApplicationExists)
+                    {
+                        _logger.LogInformation("Aplicação IIS encontrada no targetPath: {SiteName}/{TargetPath}", 
+                            siteName, targetCheckPath);
+                    }
+                }
+
                 // 3. Criar o deploy no banco ANTES de executar (para ter o ID)
                 var deploy = new Deploy
                 {
+                    RepoUrl = deployRequest.RepoUrl,
+                    Branch = deployRequest.Branch,
+                    BuildOutput = deployRequest.BuildOutput,
                     SiteName = siteName,
-                    ApplicationName = applicationName,
+                    ApplicationName = applicationPath,
                     UsuarioId = usuarioId,
                     Status = "Iniciado",
                     Plataforma = deployRequest.Branch, // Usando branch como identificação da plataforma
@@ -299,7 +383,7 @@ namespace CustomDeploy.Services.Business
                 }
 
                 // 5. Adicionar comandos do deploy (baseado no BuildCommands do request)
-                var comandosBase = new List<string>(deployRequest.BuildCommands ?? Array.Empty<string>());
+                var comandosBase = deployRequest.BuildCommand?.Select(bc => bc.Comando).ToList() ?? new List<string>();
 
                 // Salvar todos os comandos primeiro
                 for (int i = 0; i < comandosBase.Count; i++)
@@ -310,7 +394,8 @@ namespace CustomDeploy.Services.Business
                         Comando = comandosBase[i],
                         Ordem = i + 1,
                         Status = "Pendente", // Status inicial
-                        Mensagem = "Aguardando execução"
+                        Mensagem = "Aguardando execução",
+                        TerminalId = deployRequest.BuildCommand?.ElementAtOrDefault(i)?.TerminalId ?? "1" // Use the terminal ID from the request or default to "1"
                     };
                     
                     _context.DeployComandos.Add(comando);
@@ -340,8 +425,8 @@ namespace CustomDeploy.Services.Business
                     {
                         deployMessage = "Todos os comandos executados com sucesso";
                         
-                        // 8. Executar a parte de cópia de arquivos usando o serviço legacy
-                        var copyResult = await _legacyDeployService.ExecuteDeployAsync(deployRequest);
+                        // 8. Executar a parte de cópia de arquivos
+                        var copyResult = await CopyBuildOutputToIISPathAsync(workingDirectory, deployRequest.BuildOutput, finalTargetPath);
                         if (!copyResult.Success)
                         {
                             deploySuccess = false;
@@ -397,142 +482,299 @@ namespace CustomDeploy.Services.Business
                 throw;
             }
         }
+        
 
-        private async Task<bool> ExecutarComandosIndividualmenteAsync(int deployId, List<string> comandos, DeployRequest deployRequest)
+        private async Task<(bool Success, string Message)> CopyBuildOutputToIISPathAsync(string repoPath, string buildOutput, string targetPath)
         {
-            // Usar o diretório do repositório clonado como diretório de trabalho
-            string workingDirectory = Path.Combine(Path.GetTempPath(), GetRepoNameFromUrl(deployRequest.RepoUrl));
-            
             try
             {
-                _logger.LogInformation("Iniciando execução individual de comandos para deploy {DeployId} em {WorkingDir}", 
+                var sourcePath = Path.Combine(repoPath, buildOutput);
+                
+                if (!Directory.Exists(sourcePath))
+                {
+                    return (false, $"Diretório de build não encontrado: {sourcePath}");
+                }
+
+                _logger.LogInformation("Copiando arquivos de {SourcePath} para caminho IIS: {TargetPath}", sourcePath, targetPath);
+
+                // Validar se o diretório pai existe (site físico)
+                var parentPath = Path.GetDirectoryName(targetPath);
+                if (!Directory.Exists(parentPath))
+                {
+                    return (false, $"Diretório do site IIS não encontrado: {parentPath}");
+                }
+
+                // Limpar diretório de destino se existir
+                if (Directory.Exists(targetPath))
+                {
+                    _logger.LogInformation("Limpando diretório de destino IIS: {TargetPath}", targetPath);
+                    Directory.Delete(targetPath, true);
+                    await Task.Delay(100); // Pequeno delay para garantir que o diretório foi deletado
+                }
+
+                // Criar diretório de destino
+                Directory.CreateDirectory(targetPath);
+
+                // Copiar recursivamente
+                await CopyDirectoryAsync(sourcePath, targetPath);
+
+                _logger.LogInformation("Deploy para IIS concluído: {TargetPath}", targetPath);
+                return (true, $"Arquivos copiados com sucesso para {targetPath}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro durante cópia dos arquivos para IIS");
+                return (false, ex.Message);
+            }
+        }
+
+       private async Task CopyDirectoryAsync(string sourceDir, string targetDir)
+        {
+            var dir = new DirectoryInfo(sourceDir);
+            var dirs = dir.GetDirectories();
+
+            // Criar diretório de destino
+            Directory.CreateDirectory(targetDir);
+
+            // Copiar arquivos
+            foreach (var file in dir.GetFiles())
+            {
+                var targetFilePath = Path.Combine(targetDir, file.Name);
+                file.CopyTo(targetFilePath, true);
+            }
+
+            // Copiar subdiretórios recursivamente
+            foreach (var subDir in dirs)
+            {
+                var targetSubDir = Path.Combine(targetDir, subDir.Name);
+                await CopyDirectoryAsync(subDir.FullName, targetSubDir);
+            }
+        }
+
+        private (string fileName, string arguments) PrepareCommand(string command)
+        {
+            // Detectar comandos "start cmd" e remover o "start" para aguardar execução completa
+            if (command.StartsWith("start cmd "))
+            {
+                _logger.LogInformation("Detectado comando 'start cmd', removendo 'start' para aguardar execução completa");
+
+                // Remover "start " do início, mantendo "cmd ..."
+                command = command.Substring(6); // Remove "start "
+
+                // Adicionar /c se não existir
+                if (!command.Contains("cmd /c"))
+                {
+                    if (command.StartsWith("cmd \""))
+                    {
+                        // Padrão: cmd "comando" -> cmd /c "comando"
+                        command = command.Replace("cmd \"", "cmd /c \"");
+                    }
+                    else
+                    {
+                        // Padrão: cmd comando -> cmd /c comando
+                        command = command.Replace("cmd ", "cmd /c ");
+                    }
+                    _logger.LogInformation("Adicionado /c ao comando cmd");
+                }
+
+                _logger.LogInformation("Comando modificado para aguardar execução: {ModifiedCommand}", command);
+            }
+
+            // Para comandos que precisam do shell (npm, yarn, etc.)
+            if (command.StartsWith("npm ") ||
+                command.StartsWith("yarn ") ||
+                command.StartsWith("npx ") ||
+                command.StartsWith("cmd ") ||
+                command.Contains("&&") ||
+                command.Contains("&") ||
+                command.Contains("|"))
+            {
+                return ("cmd.exe", $"/c \"{command}\"");
+            }
+
+            // Para comandos diretos (dotnet, git, etc.)
+            var parts = command.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+
+            if (parts.Length == 0)
+                return ("cmd.exe", "/c echo No command specified");
+
+            if (parts.Length == 1)
+                return (parts[0], "");
+
+            return (parts[0], parts[1]);
+        }
+        
+        private async Task<bool> ExecutarComandosIndividualmenteAsync(int deployId, List<string> comandos, DeployRequest deployRequest)
+        {
+            string workingDirectory = Path.Combine(Path.GetTempPath(), GetRepoNameFromUrl(deployRequest.RepoUrl));
+
+            try
+            {
+                _logger.LogInformation("Iniciando execução individual de comandos para deploy {DeployId} em {WorkingDir}",
                     deployId, workingDirectory);
 
-                // Buscar comandos salvos no banco
                 var comandosSalvos = await _context.DeployComandos
                     .Where(dc => dc.DeployId == deployId)
                     .OrderBy(dc => dc.Ordem)
                     .ToListAsync();
 
-                bool todosComandosOk = true;
+                var comandosAgrupadosPorTerminal = comandosSalvos
+                    .GroupBy(c => c.TerminalId)
+                    .ToList();
 
-                for (int i = 0; i < comandosSalvos.Count; i++)
+                foreach (var grupo in comandosAgrupadosPorTerminal)
                 {
-                    var comandoBanco = comandosSalvos[i];
-                    string comando = comandoBanco.Comando;
-                    
-                    _logger.LogInformation("Executando comando {Ordem}/{Total}: {Comando}", 
-                        i + 1, comandosSalvos.Count, comando);
+                    string? terminalId = grupo.Key;
+                    _logger.LogInformation("Executando comandos no terminal: {TerminalId}", terminalId);
 
-                    // Atualizar status para "Executando"
-                    comandoBanco.Status = "Executando";
-                    comandoBanco.Mensagem = "Comando em execução...";
-                    comandoBanco.ExecutadoEm = DateTime.UtcNow;
-                    await _context.SaveChangesAsync();
 
-                    // Adicionar histórico
-                    var historicoComando = new DeployHistorico
+                    // Criar um único processo cmd para todos os comandos do mesmo terminal
+                    var processInfo = new System.Diagnostics.ProcessStartInfo
                     {
-                        DeployId = deployId,
-                        Status = "Executando",
-                        Mensagem = $"Executando comando {i + 1}: {comando}",
-                        Data = DateTime.UtcNow
+                        FileName = "cmd.exe",
+                        WorkingDirectory = workingDirectory,
+                        RedirectStandardInput = true,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true
                     };
-                    _context.DeployHistoricos.Add(historicoComando);
-                    await _context.SaveChangesAsync();
 
-                    try
+                    using var process = new System.Diagnostics.Process { StartInfo = processInfo };
+                    
+                    var outputBuilder = new System.Text.StringBuilder();
+                    var errorBuilder = new System.Text.StringBuilder();
+
+                    var outputTcs = new TaskCompletionSource<bool>();
+                    var errorTcs = new TaskCompletionSource<bool>();
+
+                    process.OutputDataReceived += (sender, args) =>
                     {
-                        // Executar o comando
-                        var resultado = await ExecutarComandoAsync(comando, workingDirectory);
-                        
-                        if (resultado.Success)
-                        {
-                            comandoBanco.Status = "Sucesso";
-                            comandoBanco.Mensagem = $"Comando executado com sucesso. {resultado.Message}";
-                            
-                            // Log de sucesso
-                            _logger.LogInformation("Comando {Ordem} executado com sucesso: {Comando}", 
-                                i + 1, comando);
-                                
-                            // Histórico de sucesso
-                            var historicoSucesso = new DeployHistorico
-                            {
-                                DeployId = deployId,
-                                Status = "ComandoOK",
-                                Mensagem = $"Comando {i + 1} executado: {resultado.Message}",
-                                Data = DateTime.UtcNow
-                            };
-                            _context.DeployHistoricos.Add(historicoSucesso);
-                        }
+                        if (args.Data == null)
+                            outputTcs.SetResult(true);
                         else
                         {
-                            comandoBanco.Status = "Falha";
-                            comandoBanco.Mensagem = $"Comando falhou: {resultado.Message}";
-                            todosComandosOk = false;
+                            outputBuilder.AppendLine(args.Data);
+                            _logger.LogInformation("Output: {Output}", args.Data);
+                        }
+                    };
+
+                    process.ErrorDataReceived += (sender, args) =>
+                    {
+                        if (args.Data == null)
+                            errorTcs.SetResult(true);
+                        else
+                        {
+                            errorBuilder.AppendLine(args.Data);
+                            _logger.LogError("Error: {Error}", args.Data);
+                        }
+                    };
+
+                    process.Start();
+                    process.BeginOutputReadLine();
+                    process.BeginErrorReadLine();
+
+                    // Configurar PATH para npm/yarn se necessário
+                    var currentPath = Environment.GetEnvironmentVariable("PATH") ?? "";
+                    var nodePaths = $"set PATH={currentPath};C:\\Program Files\\nodejs;C:\\Program Files (x86)\\nodejs;C:\\Users\\{Environment.UserName}\\AppData\\Roaming\\npm\n";
+                    await process.StandardInput.WriteLineAsync(nodePaths);
+                    await process.StandardInput.FlushAsync();
+
+                    foreach (var comandoBanco in grupo)
+                    {
+                        string comando = comandoBanco.Comando;
+                        _logger.LogInformation("Executando comando: {Comando}", comando);
+
+                        // Atualizar status para "Executando"
+                        comandoBanco.Status = "Executando";
+                        comandoBanco.Mensagem = "Comando em execução...";
+                        comandoBanco.ExecutadoEm = DateTime.UtcNow;
+                        await _context.SaveChangesAsync();
+
+                        try
+                        {
+                            // Limpar buffers antes de executar novo comando
+                            outputBuilder.Clear();
+                            errorBuilder.Clear();
+
+                            // Gerar um marker único para identificar o fim do comando
+                            var endMarker = $"END_MARKER_{Guid.NewGuid():N}";
                             
-                            // Log de erro
-                            _logger.LogError("Comando {Ordem} falhou: {Comando}. Erro: {Erro}", 
-                                i + 1, comando, resultado.Message);
-                                
-                            // Histórico de erro
-                            var historicoErro = new DeployHistorico
+                            // Executar o comando com markers e checagem de erro
+                            await process.StandardInput.WriteLineAsync(comando);
+                            await process.StandardInput.WriteLineAsync($"echo %errorlevel% > \"{workingDirectory}\\{endMarker}\"");
+                            await process.StandardInput.FlushAsync();
+
+                            // Aguardar pelo arquivo marker (máximo 1 minuto)
+                            var timeoutTask = Task.Delay(TimeSpan.FromMinutes(1));
+                            var markerPath = Path.Combine(workingDirectory, endMarker);
+                            
+                            while (!timeoutTask.IsCompleted)
                             {
-                                DeployId = deployId,
-                                Status = "ComandoFalha",
-                                Mensagem = $"Comando {i + 1} falhou: {resultado.Message}",
-                                Data = DateTime.UtcNow
-                            };
-                            _context.DeployHistoricos.Add(historicoErro);
+                                if (File.Exists(markerPath))
+                                {
+                                    // Aguardar um pouco mais para garantir que todo output foi capturado
+                                    await Task.Delay(1000);
+                                    
+                                    var errorLevel = await File.ReadAllTextAsync(markerPath);
+                                    File.Delete(markerPath); // Limpar o arquivo marker
+                                    
+                                    var success = errorLevel.Trim() == "0";
+                                    var output = outputBuilder.ToString();
+                                    var error = errorBuilder.ToString();
+
+                                    if (success)
+                                    {
+                                        comandoBanco.Status = "Sucesso";
+                                        comandoBanco.Mensagem = "Comando executado com sucesso.";
+                                        _logger.LogInformation("Comando executado com sucesso: {Comando}", comando);
+                                    }
+                                    else
+                                    {
+                                        comandoBanco.Status = "Falha";
+                                        var errorMsg = !string.IsNullOrWhiteSpace(error) ? error : output;
+                                        comandoBanco.Mensagem = errorMsg;
+                                        _logger.LogError("Falha ao executar comando: {Comando}. Erro: {Erro}", comando, errorMsg);
+                                        break;
+                                    }
+                                    
+                                    break;
+                                }
+                                
+                                await Task.Delay(100); // Checar a cada 100ms
+                            }
                             
-                            // Parar execução se um comando falhar
+                            if (timeoutTask.IsCompleted)
+                            {
+                                throw new TimeoutException($"O comando excedeu o tempo limite de 10 minutos: {comando}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            comandoBanco.Status = "Erro";
+                            comandoBanco.Mensagem = ex.Message;
+                            _logger.LogError(ex, "Erro inesperado ao executar comando: {Comando}", comando);
                             break;
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        comandoBanco.Status = "Erro";
-                        comandoBanco.Mensagem = $"Erro inesperado: {ex.Message}";
-                        todosComandosOk = false;
-                        
-                        _logger.LogError(ex, "Erro inesperado ao executar comando {Ordem}: {Comando}", 
-                            i + 1, comando);
-                            
-                        // Histórico de erro
-                        var historicoErro = new DeployHistorico
+                        finally
                         {
-                            DeployId = deployId,
-                            Status = "ComandoErro",
-                            Mensagem = $"Erro no comando {i + 1}: {ex.Message}",
-                            Data = DateTime.UtcNow
-                        };
-                        _context.DeployHistoricos.Add(historicoErro);
-                        
-                        break;
+                            await _context.SaveChangesAsync();
+                        }
                     }
-                    finally
+
+                    // Fechar o shell
+                    process.StandardInput.Close();
+                    if (!process.WaitForExit(30000)) // 30 segundos de timeout
                     {
-                        // Salvar status do comando
-                        await _context.SaveChangesAsync();
+                        process.Kill();
                     }
                 }
 
-                return todosComandosOk;
+                return true;
             }
             finally
             {
-                // Limpar diretório temporário
-                try
-                {
-                    if (Directory.Exists(workingDirectory))
-                    {
-                        Directory.Delete(workingDirectory, true);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Erro ao limpar diretório temporário: {WorkingDir}", workingDirectory);
-                }
+                // Removido Directory.Delete(workingDirectory, true); para reutilização futura do diretório
             }
         }
 
@@ -620,31 +862,34 @@ namespace CustomDeploy.Services.Business
         {
             comando = comando.Trim();
             
-            if (comando.StartsWith("git "))
+            // Para comandos que precisam do shell (cd, npm, yarn, etc.)
+            if (comando.StartsWith("cd ") ||
+                comando.StartsWith("dir ") ||
+                comando.StartsWith("npm ") || 
+                comando.StartsWith("yarn ") || 
+                comando.StartsWith("npx ") ||
+                comando.StartsWith("cmd ") ||
+                comando.Contains("&&") ||
+                comando.Contains("&") ||
+                comando.Contains("|"))
             {
-                return ("git", comando.Substring(4));
+                return ("cmd.exe", $"/c \"{comando}\"");
             }
-            else if (comando.StartsWith("npm "))
+            
+            // Para comandos diretos (dotnet, git, etc.)
+            var parts = comando.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+            
+            if (parts.Length == 0)
+                return ("cmd.exe", "/c echo No command specified");
+            
+            if (parts.Length == 1)
             {
-                return ("npm", comando.Substring(4));
+                if (parts[0] == "cd" || parts[0] == "dir")
+                    return ("cmd.exe", $"/c {parts[0]}");
+                return (parts[0], "");
             }
-            else if (comando.StartsWith("yarn "))
-            {
-                return ("yarn", comando.Substring(5));
-            }
-            else if (comando.StartsWith("dotnet "))
-            {
-                return ("dotnet", comando.Substring(7));
-            }
-            else if (comando.StartsWith("node "))
-            {
-                return ("node", comando.Substring(5));
-            }
-            else
-            {
-                // Para comandos genéricos, usar cmd
-                return ("cmd", $"/c {comando}");
-            }
+            
+            return (parts[0], parts[1]);
         }
 
         private (string siteName, string? applicationName) ParseSiteAndApplication(string iisSiteName, string? applicationPath)
@@ -747,19 +992,28 @@ namespace CustomDeploy.Services.Business
                     else
                     {
                         _logger.LogWarning("A pasta do repositório existe, mas está vazia: {RepoPath}", repoPath);
+
+                        // Clonar diretamente na pasta raiz
+                        var cloneResult = await RunGitCommandAsync($"clone {authenticatedUrl} .", repoPath);
+                        if (!cloneResult.Success)
+                        {
+                            return (false, $"Falha no clone: {cloneResult.Message}");
+                        }
+
+                        return (true, "Repositório clonado diretamente na pasta raiz");
                     }
                 }
 
                 _logger.LogInformation("🚀 Clonando repositório com fallback inteligente: {RepoUrl}", repoUrl);
                 
                 // Usar o novo método de clone com fallback
-                var cloneResult = await _gitHubService.TryCloneWithFallbackAsync(repoUrl, branch, repoPath);
-                if (!cloneResult.Success)
+                var cloneResultFallback = await _gitHubService.TryCloneWithFallbackAsync(repoUrl, branch, repoPath);
+                if (!cloneResultFallback.Success)
                 {
-                    return (false, $"Falha no clone: {cloneResult.Message}");
+                    return (false, $"Falha no clone: {cloneResultFallback.Message}");
                 }
 
-                var authMethod = cloneResult.UsedSystemCredentials ? "credenciais do sistema" : "credenciais explícitas";
+                var authMethod = cloneResultFallback.UsedSystemCredentials ? "credenciais do sistema" : "credenciais explícitas";
                 _logger.LogInformation("✅ Clone realizado com sucesso usando {AuthMethod}", authMethod);
                 return (true, $"Repositório clonado com sucesso usando {authMethod}");
             }

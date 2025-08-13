@@ -1,3 +1,5 @@
+import { type BuildCommand } from '../../services/deployService';
+
 // Tipos para o gerenciamento de publicações
 
 export interface Publication {
@@ -6,7 +8,7 @@ export interface Publication {
   subApplication?: string;
   repository?: string;
   branch?: string;
-  buildCommand?: string;
+  buildCommand?: BuildCommand[];
   buildOutput?: string;
   targetPath: string;
   sizeMB: number;
@@ -38,14 +40,14 @@ export interface CreateMetadataRequest {
   subPath?: string;
   repoUrl: string;
   branch: string;
-  buildCommand: string;
+  buildCommand: BuildCommand[];
   buildOutput: string;
 }
 
 export interface UpdateMetadataRequest {
   repository?: string;
   branch?: string;
-  buildCommand?: string;
+  buildCommand?: BuildCommand[];
   buildOutput?: string;
 }
 

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace CustomDeploy.Models.Entities
 {
@@ -44,6 +45,7 @@ namespace CustomDeploy.Models.Entities
 
         // Navigation Properties
         [ForeignKey(nameof(UsuarioId))]
+        [JsonIgnore]
         public virtual Usuario Usuario { get; set; } = null!;
 
         public virtual ICollection<DeployComando> DeployComandos { get; set; } = new List<DeployComando>();

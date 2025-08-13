@@ -26,12 +26,13 @@ export const DeployModal: React.FC<DeployModalProps> = ({
   };
 
   // Dados iniciais baseados na publicação
+  console.log("PUUU", publication)
   const initialData = publication ? {
     siteName: publication.siteName || '',
     applicationPath: publication.isSubProject ? publication.name.split('/').slice(1).join('/') : '',
     repoUrl: publication.repoUrl || publication.repository || '',
     branch: publication.branch || 'main',
-    buildCommand: publication.buildCommand || 'npm install && npm run build',
+    buildCommand: publication.buildCommand || [{ comando: 'npm install && npm run build', terminalId: '1' }],
     buildOutput: publication.buildOutput || 'dist',
   } : undefined;
 

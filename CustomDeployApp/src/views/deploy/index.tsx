@@ -70,7 +70,7 @@ export const DeployView: React.FC = () => {
           showPreview={true}
           initialData={{
             branch: 'main',
-            BuildCommands: ['npm install && npm run build'],
+            buildCommand: [{comando: 'npm install && npm run build', terminalId: '1'}],
             buildOutput: 'dist'
           }}
         />

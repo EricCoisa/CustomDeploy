@@ -25,11 +25,17 @@ import {
 } from './styles';
 import type { DeployRequest } from '../../services/deployService';
 
+// Interface estendida para acomodar os campos alternativos da API
+interface ExtendedInitialData extends Partial<DeployRequest> {
+  siteName?: string;
+  subPath?: string;
+}
+
 interface DeployFormProps {
   title?: string;
   onSuccess?: (result: Record<string, unknown>) => void;
   onError?: (error: string) => void;
-  initialData?: Partial<DeployRequest>;
+  initialData?: ExtendedInitialData;
   showPreview?: boolean;
 }
 
@@ -45,16 +51,23 @@ export const DeployForm: React.FC<DeployFormProps> = ({
   const { isDeploying, lastDeployResult, error } = useAppSelector(state => state.deploy);
 
   // Estados do formulário
-  const [formData, setFormData] = useState<DeployRequest>({
+  console.log("Initial form data:", initialData);
+  // Converter os valores iniciais do formato da API para o formato do form
+  const initialFormData = {
     repoUrl: initialData?.repoUrl || '',
     branch: initialData?.branch || 'main',
-    buildCommands: initialData?.buildCommands || ['npm install && npm run build'],
+    buildCommand: initialData?.buildCommand || [{ comando: 'npm install && npm run build', terminalId: '1' }],
     buildOutput: initialData?.buildOutput || 'dist',
-    iisSiteName: initialData?.iisSiteName || '',
+    // Converter siteName para iisSiteName e subPath para applicationPath
+    iisSiteName: initialData?.siteName || initialData?.iisSiteName || '',
     targetPath: initialData?.targetPath || '',
-    applicationPath: initialData?.applicationPath || '',
+    applicationPath: initialData?.subPath || initialData?.applicationPath || '',
     plataforma: initialData?.plataforma || '',
-  });
+  };
+
+  console.log("Converted initial form data:", initialFormData);
+  
+  const [formData, setFormData] = useState<DeployRequest>(initialFormData);
 
   // Estados de validação
   const [errors, setErrors] = useState<Partial<Record<keyof DeployRequest, string>>>({});
@@ -68,13 +81,13 @@ export const DeployForm: React.FC<DeployFormProps> = ({
   }, [dispatch, sites.length, iisLoading.sites]);
 
   // Validação de campos
-  const validateField = (name: keyof DeployRequest, value: string | string[]): string => {
+  const validateField = (name: keyof DeployRequest, value: string | {comando: string, terminalId: string}[]): string => {
     switch (name) {
       case 'repoUrl':
         return !value ? 'URL do repositório é obrigatória' : '';
       case 'branch':
         return !value ? 'Branch é obrigatória' : '';
-      case 'buildCommands':
+      case 'buildCommand':
         return Array.isArray(value) && value.length === 0 ? 'Comandos de build são obrigatórios' : '';
       case 'buildOutput':
         return !value ? 'Saída do build é obrigatória' : '';
@@ -99,7 +112,7 @@ export const DeployForm: React.FC<DeployFormProps> = ({
   // Marcar campo como tocado
   const handleFieldBlur = (name: keyof DeployRequest) => {
     setTouched(prev => ({ ...prev, [name]: true }));
-    const error = validateField(name, formData[name] || ''); // Garantir valor padrão
+    const error = validateField(name, formData[name] !== undefined ? formData[name] : (name === 'buildCommand' ? [] : '')); // Garantir valor padrão apropriado
     setErrors(prev => ({ ...prev, [name]: error }));
   };
 
@@ -120,7 +133,7 @@ export const DeployForm: React.FC<DeployFormProps> = ({
     setTouched({
       repoUrl: true,
       branch: true,
-      buildCommands: true,
+      buildCommand: true,
       buildOutput: true,
       iisSiteName: true,
       applicationPath: true,
@@ -176,22 +189,22 @@ export const DeployForm: React.FC<DeployFormProps> = ({
   const handleAddBuildCommand = () => {
     setFormData(prev => ({
       ...prev,
-      buildCommands: [...prev.buildCommands, ''],
+      buildCommand: [...prev.buildCommand, { comando: '', terminalId: '1' }],
     }));
   };
 
   const handleRemoveBuildCommand = (index: number) => {
     setFormData(prev => ({
       ...prev,
-      buildCommands: prev.buildCommands.filter((_, i) => i !== index),
+      buildCommand: prev.buildCommand.filter((_, i) => i !== index),
     }));
   };
 
-  const handleBuildCommandChange = (index: number, value: string) => {
+  const handleBuildCommandChange = (index: number, field: 'comando' | 'terminalId', value: string) => {
     setFormData(prev => {
-      const updatedCommands = [...prev.buildCommands];
-      updatedCommands[index] = value;
-      return { ...prev, buildCommands: updatedCommands };
+      const updatedCommands = [...prev.buildCommand];
+      updatedCommands[index] = { ...updatedCommands[index], [field]: value };
+      return { ...prev, buildCommand: updatedCommands };
     });
   };
 
@@ -251,16 +264,27 @@ export const DeployForm: React.FC<DeployFormProps> = ({
         {/* Caminho da Aplicação */}
         <FormGroup>
           <FormLabel>Caminho da Aplicação</FormLabel>
-          <FormInput
-            type="text"
-            placeholder="Ex: api, app, v1 (opcional)"
-            value={formData.applicationPath}
-            onChange={(e) => handleFieldChange('applicationPath', e.target.value)}
-            onBlur={() => handleFieldBlur('applicationPath')}
-            disabled={isDeploying}
-            className={errors.applicationPath ? 'error' : ''}
-          />
-          <HelpText>Deixe vazio para fazer deploy no root do site</HelpText>
+          {formData.iisSiteName ? (
+            <FormSelect
+              value={formData.applicationPath}
+              onChange={(e) => handleFieldChange('applicationPath', e.target.value)}
+              onBlur={() => handleFieldBlur('applicationPath')}
+              disabled={isDeploying || !formData.iisSiteName}
+              className={errors.applicationPath ? 'error' : ''}
+            >
+              <option value="">Root do Site</option>
+              {sites.find(site => site.name === formData.iisSiteName)?.applications?.map((app) => (
+                <option key={app.name} value={app.name.replace('/', '')}>
+                  {app.name} ({app.state || 'N/A'})
+                </option>
+              ))}
+            </FormSelect>
+          ) : (
+            <FormSelect disabled>
+              <option value="">Selecione um site primeiro</option>
+            </FormSelect>
+          )}
+          <HelpText>Selecione a aplicação onde o deploy será feito</HelpText>
         </FormGroup>
 
         {/* URL do Repositório */}
@@ -302,16 +326,22 @@ export const DeployForm: React.FC<DeployFormProps> = ({
           <FormLabel>
             Comandos de Build <RequiredMark>*</RequiredMark>
           </FormLabel>
-          {formData.buildCommands.map((command, index) => (
+          {formData.buildCommand.map((command, index) => (
             <div key={index} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
               <FormInput
                 type="text"
-                placeholder="npm install && npm run build"
-                value={command}
-                onChange={(e) => handleBuildCommandChange(index, e.target.value)}
-                onBlur={() => handleFieldBlur('buildCommands')}
+                placeholder="Comando (ex: npm install && npm run build)"
+                value={command.comando}
+                onChange={(e) => handleBuildCommandChange(index, 'comando', e.target.value)}
                 disabled={isDeploying}
-                className={errors.buildCommands ? 'error' : ''}
+                style={{ flex: 2, marginRight: '8px' }}
+              />
+              <FormInput
+                type="text"
+                placeholder="Terminal ID (ex: 1)"
+                value={command.terminalId}
+                onChange={(e) => handleBuildCommandChange(index, 'terminalId', e.target.value)}
+                disabled={isDeploying}
                 style={{ flex: 1, marginRight: '8px' }}
               />
               <Button
@@ -334,7 +364,7 @@ export const DeployForm: React.FC<DeployFormProps> = ({
           >
             + Adicionar Comando
           </Button>
-          {errors.buildCommands && <ErrorText>⚠️ {errors.buildCommands}</ErrorText>}
+          {errors.buildCommand && <ErrorText>⚠️ {errors.buildCommand}</ErrorText>}
           <HelpText>Comandos para instalar dependências e fazer build do projeto</HelpText>
         </FormGroup>
 
@@ -375,7 +405,7 @@ export const DeployForm: React.FC<DeployFormProps> = ({
             setFormData({
               repoUrl: '',
               branch: 'main',
-              buildCommands: ['npm install && npm run build'],
+              buildCommand: [{ comando: 'npm install && npm run build', terminalId: '1' }],
               buildOutput: 'dist',
               iisSiteName: '',
               targetPath: '',

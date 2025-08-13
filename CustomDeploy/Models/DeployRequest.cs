@@ -1,10 +1,12 @@
+using CustomDeploy.Models.DTOs;
+
 namespace CustomDeploy.Models
 {
     public class DeployRequest
     {
         public string RepoUrl { get; set; } = string.Empty;
         public string Branch { get; set; } = string.Empty;
-        public string[] BuildCommands { get; set; } = Array.Empty<string>();
+        public BuildCommand[] BuildCommand { get; set; } = Array.Empty<BuildCommand>();
         public string BuildOutput { get; set; } = string.Empty;
         
         /// <summary>

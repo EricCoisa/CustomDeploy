@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using CustomDeploy.Models;
+using CustomDeploy.Models.DTOs;
 
 namespace CustomDeploy.Services
 {
@@ -178,7 +179,7 @@ namespace CustomDeploy.Services
                 }
 
                 // 7. Executar comandos de build
-                var buildResult = await ExecuteBuildCommandsAsync(request.BuildCommands, repoPath);
+                var buildResult = await ExecuteBuildCommandsAsync(request.BuildCommand.ToList(), repoPath);
                 if (!buildResult.Success)
                 {
                     return (false, $"Erro no build: {buildResult.Message}", deployDetails);
@@ -322,37 +323,37 @@ namespace CustomDeploy.Services
             }
         }
 
-        private async Task<(bool Success, string Message)> ExecuteBuildCommandsAsync(string[] buildCommands, string workingDirectory)
+        private async Task<(bool Success, string Message)> ExecuteBuildCommandsAsync(List<CustomDeploy.Models.DTOs.BuildCommand> buildCommands, string workingDirectory)
         {
             try
             {
-                if (buildCommands == null || buildCommands.Length == 0)
+                if (buildCommands == null || buildCommands.Count == 0)
                 {
                     return (true, "Nenhum comando de build especificado");
                 }
 
                 var allOutput = new StringBuilder();
-                
-                for (int i = 0; i < buildCommands.Length; i++)
+
+                for (int i = 0; i < buildCommands.Count; i++)
                 {
                     var buildCommand = buildCommands[i];
                     _logger.LogInformation("Executando comando de build {Index}/{Total}: {BuildCommand}", 
-                        i + 1, buildCommands.Length, buildCommand);
+                        i + 1, buildCommands.Count, buildCommand.Comando);
 
-                    var result = await ExecuteBuildCommandAsync(buildCommand, workingDirectory);
-                    
-                    allOutput.AppendLine($"Comando {i + 1}: {buildCommand}");
+                    var result = await ExecuteBuildCommandAsync(buildCommand.Comando, workingDirectory);
+
+                    allOutput.AppendLine($"Comando {i + 1}: {buildCommand.Comando}");
                     allOutput.AppendLine($"Resultado: {(result.Success ? "Sucesso" : "Falha")}");
                     allOutput.AppendLine($"Mensagem: {result.Message}");
                     allOutput.AppendLine("---");
 
                     if (!result.Success)
                     {
-                        return (false, $"Falha no comando {i + 1} ({buildCommand}): {result.Message}");
+                        return (false, $"Falha no comando {i + 1} ({buildCommand.Comando}): {result.Message}");
                     }
                 }
 
-                return (true, $"Todos os {buildCommands.Length} comandos executados com sucesso");
+                return (true, $"Todos os {buildCommands.Count} comandos executados com sucesso");
             }
             catch (Exception ex)
             {

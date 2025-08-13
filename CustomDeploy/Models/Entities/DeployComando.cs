@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace CustomDeploy.Models.Entities
 {
@@ -28,13 +29,11 @@ namespace CustomDeploy.Models.Entities
 
         public DateTime? ExecutadoEm { get; set; }
 
-        // Navigation Properties
-        [ForeignKey(nameof(DeployId))]
-        public virtual Deploy Deploy { get; set; } = null!;
-
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
 
         public DateTime? AtualizadoEm { get; set; }
+
+        public string? TerminalId { get; set; }
     }
 }

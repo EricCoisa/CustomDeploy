@@ -1,5 +1,7 @@
 // Tipos para o gerenciamento de deploy
 
+import type { BuildCommand } from "../../services/deployService";
+
 export interface DeployState {
   isDeploying: boolean;
   lastDeployResult: DeployResult | null;
@@ -11,7 +13,7 @@ export interface DeployResult {
   message: string;
   repository: string;
   branch: string;
-  buildCommand: string;
+  buildCommand: BuildCommand[];
   buildOutput: string;
   targetPath?: string;
   iisSiteName: string;

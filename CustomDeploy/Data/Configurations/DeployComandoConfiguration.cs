@@ -32,8 +32,12 @@ namespace CustomDeploy.Data.Configurations
             builder.Property(dc => dc.AtualizadoEm)
                 .IsRequired(false);
 
+            builder.Property(dc => dc.TerminalId)
+                .HasMaxLength(100)
+                .IsRequired(false);
+
             // Relacionamentos
-            builder.HasOne(dc => dc.Deploy)
+            builder.HasOne<Deploy>() // Relação sem navegação
                 .WithMany(d => d.DeployComandos)
                 .HasForeignKey(dc => dc.DeployId)
                 .OnDelete(DeleteBehavior.Cascade);

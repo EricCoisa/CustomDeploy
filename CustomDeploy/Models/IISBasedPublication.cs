@@ -1,3 +1,5 @@
+using CustomDeploy.Models.Entities;
+
 namespace CustomDeploy.Models
 {
     /// <summary>
@@ -38,7 +40,7 @@ namespace CustomDeploy.Models
         /// <summary>
         /// Comando de build (do arquivo de metadados)
         /// </summary>
-        public string[]? BuildCommand { get; set; }
+        public virtual ICollection<DeployComando> BuildCommand { get; set; } = new List<DeployComando>();
 
         /// <summary>
         /// Diretório de saída do build (do arquivo de metadados)

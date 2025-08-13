@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace CustomDeploy.Models.Entities
 {
@@ -29,6 +30,7 @@ namespace CustomDeploy.Models.Entities
         // Navigation Properties
         public virtual UsuarioAcesso UsuarioAcesso { get; set; } = null!;
 
+        [JsonIgnore]
         public virtual ICollection<Deploy> Deploys { get; set; } = new List<Deploy>();
 
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]

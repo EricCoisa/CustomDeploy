@@ -117,7 +117,8 @@ namespace CustomDeploy.Controllers
                         CriadoEm = dc.CriadoEm,
                         Status = dc.Status,
                         Mensagem = dc.Mensagem,
-                        ExecutadoEm = dc.ExecutadoEm
+                        ExecutadoEm = dc.ExecutadoEm,
+                        TerminalId = dc.TerminalId // Adicionado o campo TerminalId
                     }).ToList(),
                     Historico = deploy.DeployHistoricos.Select(dh => new DeployHistoricoResponse
                     {
@@ -156,7 +157,10 @@ namespace CustomDeploy.Controllers
                     request.SiteName,
                     request.ApplicationName,
                     currentUserId,
-                    request.Comandos,
+                    request.BuildCommand,
+                    request.RepoUrl,
+                    request.Branch,
+                    request.BuildOutput,
                     request.Plataforma
                 );
 
@@ -190,7 +194,8 @@ namespace CustomDeploy.Controllers
                         CriadoEm = dc.CriadoEm,
                         Status = dc.Status,
                         Mensagem = dc.Mensagem,
-                        ExecutadoEm = dc.ExecutadoEm
+                        ExecutadoEm = dc.ExecutadoEm,
+                        TerminalId = dc.TerminalId // Adicionado o campo TerminalId
                     }).ToList(),
                     Historico = deployCompleto.DeployHistoricos.Select(dh => new DeployHistoricoResponse
                     {
@@ -234,7 +239,7 @@ namespace CustomDeploy.Controllers
                 {
                     RepoUrl = request.RepoUrl,
                     Branch = request.Branch,
-                    BuildCommands = request.BuildCommands,
+                    BuildCommand = request.BuildCommand,
                     BuildOutput = request.BuildOutput,
                     IisSiteName = request.IisSiteName,
                     TargetPath = request.TargetPath,
@@ -258,7 +263,7 @@ namespace CustomDeploy.Controllers
                     Plataforma = deployCompleto.Plataforma,
                     RepoUrl = request.RepoUrl,
                     Branch = request.Branch,
-                    BuildCommands = request.BuildCommands,
+                    BuildCommands = request.BuildCommand,
                     BuildOutput = request.BuildOutput,
                     TargetPath = request.TargetPath,
                     ApplicationPath = request.ApplicationPath,
@@ -280,7 +285,8 @@ namespace CustomDeploy.Controllers
                         CriadoEm = dc.CriadoEm,
                         Status = dc.Status,
                         Mensagem = dc.Mensagem,
-                        ExecutadoEm = dc.ExecutadoEm
+                        ExecutadoEm = dc.ExecutadoEm,
+                        TerminalId = dc.TerminalId // Adicionado o campo TerminalId
                     }).ToList(),
                     Historico = deployCompleto.DeployHistoricos.Select(dh => new DeployHistoricoResponse
                     {
@@ -462,7 +468,8 @@ namespace CustomDeploy.Controllers
                     CriadoEm = dc.CriadoEm,
                     Status = dc.Status,
                     Mensagem = dc.Mensagem,
-                    ExecutadoEm = dc.ExecutadoEm
+                    ExecutadoEm = dc.ExecutadoEm,
+                    TerminalId = dc.TerminalId // Adicionado o campo TerminalId
                 });
 
                 return Ok(response);

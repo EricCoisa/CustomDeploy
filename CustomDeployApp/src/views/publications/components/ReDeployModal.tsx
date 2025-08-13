@@ -115,6 +115,7 @@ export const ReDeployModal: React.FC<ReDeployModalProps> = ({
   };
 
   const getInitialData = () => {
+    console.log("Publication data for re-deploy:", publication);
     return {
       siteName: publication.siteName || publication.name,
       subPath: publication.subApplication || '',
