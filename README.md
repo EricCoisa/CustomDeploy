@@ -1,3 +1,4 @@
+# ![Dashboard do CustomDeploy](./public/dashboard.png)
 # 🚀 CustomDeploy
 
 Automatize deploys de projetos do GitHub direto para o IIS, com segurança, praticidade e interface moderna.
