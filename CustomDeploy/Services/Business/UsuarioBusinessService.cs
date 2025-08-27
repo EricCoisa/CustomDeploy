@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using CustomDeploy.Models.Entities;
 using CustomDeploy.Data.Repositories;
+using CustomDeploy.Utils;
 
 namespace CustomDeploy.Services.Business
 {
@@ -216,15 +217,12 @@ namespace CustomDeploy.Services.Business
 
         public string GerarHashSenha(string senha)
         {
-            using var sha256 = SHA256.Create();
-            var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(senha + "CustomDeploy_Salt"));
-            return Convert.ToBase64String(hashedBytes);
+            return AuthUtils.GerarHashSenha(senha);
         }
 
         public bool VerificarSenha(string senha, string hash)
         {
-            var senhaHash = GerarHashSenha(senha);
-            return senhaHash == hash;
+            return AuthUtils.VerificarSenha(senha, hash);
         }
     }
 }

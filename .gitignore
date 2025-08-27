@@ -11,3 +11,8 @@ CustomDeploy/obj/
 
 # Logs
 *.log
+
+# Banco de dados SQLite WAL
+CustomDeploy/CustomDeploy/customdeploy.db
+CustomDeploy/CustomDeploy/customdeploy.db-shm
+CustomDeploy/CustomDeploy/customdeploy.db-wal

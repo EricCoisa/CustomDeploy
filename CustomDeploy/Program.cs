@@ -211,7 +211,7 @@ static async Task SeedDatabaseAsync(CustomDeployDbContext context, IServiceProvi
         var adminUser = await usuarioBusinessService.CriarUsuarioAsync(
             "Administrador",
             "admin@customdeploy.com",
-            "admin123",
+            "password",
             1 // Administrador
         );
 

@@ -5,6 +5,22 @@ import { executeDeploy, clearError } from '../../store/deploy/actions';
 import { fetchSites } from '../../store/iis';
 import type { IISSite } from '../../store/iis/types';
 import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { SortableBuildCommand } from './SortableBuildCommand';
+import {
   FormContainer,
   FormTitle,
   FormGrid,
@@ -208,6 +224,36 @@ export const DeployForm: React.FC<DeployFormProps> = ({
     });
   };
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (!over) {
+      console.log('No over target found');
+      return;
+    }
+
+    console.log('Drag end:', { active, over });
+
+    if (active.id !== over.id) {
+      const oldIndex = parseInt(active.id.toString().split('-')[1]);
+      const newIndex = parseInt(over.id.toString().split('-')[1]);
+      
+      console.log('Moving item:', { oldIndex, newIndex });
+      
+      const newBuildCommands = arrayMove([...formData.buildCommand], oldIndex, newIndex);
+      console.log('New build commands:', newBuildCommands);
+      
+      setFormData(prev => {
+        const updated = {
+          ...prev,
+          buildCommand: newBuildCommands,
+        };
+        console.log('Updated form data:', updated);
+        return updated;
+      });
+    }
+  };
+
   return (
     <FormContainer onSubmit={handleSubmit}>
       <FormTitle>{title}</FormTitle>
@@ -326,35 +372,37 @@ export const DeployForm: React.FC<DeployFormProps> = ({
           <FormLabel>
             Comandos de Build <RequiredMark>*</RequiredMark>
           </FormLabel>
-          {formData.buildCommand.map((command, index) => (
-            <div key={index} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-              <FormInput
-                type="text"
-                placeholder="Comando (ex: npm install && npm run build)"
-                value={command.comando}
-                onChange={(e) => handleBuildCommandChange(index, 'comando', e.target.value)}
-                disabled={isDeploying}
-                style={{ flex: 2, marginRight: '8px' }}
-              />
-              <FormInput
-                type="text"
-                placeholder="Terminal ID (ex: 1)"
-                value={command.terminalId}
-                onChange={(e) => handleBuildCommandChange(index, 'terminalId', e.target.value)}
-                disabled={isDeploying}
-                style={{ flex: 1, marginRight: '8px' }}
-              />
-              <Button
-                type="button"
-                size="small"
-                variant="secondary"
-                onClick={() => handleRemoveBuildCommand(index)}
-                disabled={isDeploying}
+          <DndContext
+            sensors={useSensors(
+              useSensor(PointerSensor, {
+                activationConstraint: {
+                  distance: 5,
+                }
+              }),
+              useSensor(KeyboardSensor, {
+                coordinateGetter: sortableKeyboardCoordinates,
+              })
+            )}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={formData.buildCommand.map((_, index) => `command-${index}`)}
+              strategy={verticalListSortingStrategy}
               >
-                ✕
-              </Button>
-            </div>
-          ))}
+              {formData.buildCommand.map((command, index) => (
+                <SortableBuildCommand
+                  key={`command-${index}`}
+                  id={`command-${index}`}
+                  command={command}
+                  index={index}
+                  isDeploying={isDeploying}
+                  onCommandChange={handleBuildCommandChange}
+                  onRemove={handleRemoveBuildCommand}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
           <Button
             type="button"
             size="small"

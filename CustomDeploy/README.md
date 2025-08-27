@@ -1,70 +1,28 @@
-````markdown
-# CustomDeploy API - Documentação
+# 🚀 CustomDeploy API
 
-## 🚀 Visão Geral
+Automatize deploys de projetos do GitHub direto para o IIS, com segurança e praticidade.
 
-A **CustomDeploy API** é uma solução completa para deploy automático de aplicações hospedadas no GitHub com **integração nativa ao IIS**. A API oferece clonagem de repositórios, build automatizado, publicação inteligente e gerenciamento centralizado de metadados.
+## Principais Recursos
 
-### 🎯 **Principais Funcionalidades**
-- ✅ **Deploy automatizado** com clonagem Git, build e publicação
-- ✅ **Integração IIS nativa** - sites e aplicações como alvos de deploy
-- ✅ **Metadados centralizados** em arquivo único `deploys.json`
-- ✅ **Autenticação GitHub** com validação prévia de repositórios
-- ✅ **Segurança robusta** com validação de caminhos anti-path traversal
-- ✅ **Gerenciamento completo** com CRUD de publicações e metadados
-- ✅ **Criação automática de metadados** para projetos órfãos
+- Deploy automático: clone, build e publicação em poucos passos
+- Integração nativa com IIS (sites e aplicações)
+- Metadados centralizados em `deploys.json`
+- Autenticação JWT e validação de repositórios GitHub
+- Segurança contra path traversal
+- Gerenciamento fácil de publicações e metadados
 
-> 📖 **Para documentação completa e detalhada, consulte:** [`CONTEXTO_APLICACAO.md`](./CONTEXTO_APLICACAO.md)
+## Como Usar
 
-## 🔐 Autenticação Rápida
+1. Configure o `appsettings.json` com suas credenciais
+2. Execute: `dotnet run`
+3. Acesse: `https://localhost:7071/swagger`
+4. Modifique o usuário inicial caso queira em : ([`Program.cs`](./Program.cs))
+5. Faça login:  
+6. Realize seu deploy!
 
-**Endpoint:** `POST /auth/login`
+## Exemplos de Deploy
 
-**Credenciais de desenvolvimento:**
-```json
-{
-  "username": "admin",
-  "password": "password"
-}
-```
-
-## 🎯 Deploy Básico
-
-**Endpoint:** `POST /deploy`
-
-**Request Body:**
-```json
-{
-  "repoUrl": "https://github.com/usuario/repositorio.git",
-  "branch": "main",
-  "buildCommand": "npm install && npm run build",
-  "buildOutput": "dist",
-  "iisSiteName": "meusite",
-  "targetPath": "api"
-}
-```
-
-**Headers:**
-```
-Authorization: Bearer <seu-token-jwt>
-Content-Type: application/json
-```
-
-## 📋 APIs Principais
-
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| **POST** | `/auth/login` | Autenticação JWT |
-| **POST** | `/deploy` | Deploy automático com IIS |
-| **GET** | `/deploy/publications` | Lista publicações (IIS-based) |
-| **POST** | `/deploy/publications/metadata` | Cria metadados sem deploy |
-| **DELETE** | `/deploy/publications/{name}` | Remove publicação completa |
-| **GET** | `/github/test-connectivity` | Testa conectividade GitHub |
-| **GET** | `/iis/sites` | Lista sites IIS |
-
-## 🎯 Exemplos de Uso
-
-### Deploy para Site Raiz
+Deploy para site IIS:
 ```json
 {
   "repoUrl": "https://github.com/user/frontend.git",
@@ -75,7 +33,7 @@ Content-Type: application/json
 }
 ```
 
-### Deploy para Aplicação IIS
+Deploy para aplicação IIS:
 ```json
 {
   "repoUrl": "https://github.com/user/api.git",
@@ -87,60 +45,29 @@ Content-Type: application/json
 }
 ```
 
-## 🔧 Configuração
+## Endpoints Úteis
 
-### appsettings.json
-```json
-{
-  "DeploySettings": {
-    "WorkingDirectory": "C:\\temp\\CustomDeploy",
-    "PublicationsPath": "C:\\temp\\wwwroot"
-  },
-  "GitHubSettings": {
-    "Username": "seu-usuario",
-    "PersonalAccessToken": "seu-token",
-    "UseSystemCredentials": true
-  },
-  "Jwt": {
-    "Key": "sua-chave-secreta",
-    "ExpirationInMinutes": 60
-  }
-}
-```
+| Método | Endpoint                | Função                       |
+|--------|-------------------------|------------------------------|
+| POST   | `/auth/login`           | Autenticação JWT             |
+| POST   | `/deploy`               | Deploy automático            |
+| GET    | `/deploy/publications`  | Listar publicações           |
+| GET    | `/iis/sites`            | Listar sites IIS             |
 
-## 🛡️ Segurança
+## Segurança
 
-- **JWT Authentication** - Todos os endpoints protegidos
-- **Path Validation** - Anti-path traversal robusto
-- **GitHub Validation** - Verificação prévia de repositórios
-- **IIS Integration** - Validação de sites e aplicações
-- **Administrative Privileges** - Verificação de permissões
+- Autenticação JWT
+- Validação de caminhos e permissões
+- Verificação de repositórios GitHub
 
-## 🚀 Início Rápido
+## Documentação Completa
 
-1. **Configure** o `appsettings.json` com suas credenciais
-2. **Execute** a aplicação: `dotnet run`
-3. **Acesse** Swagger UI: `https://localhost:7071/swagger`
-4. **Faça login** com `admin/password`
-5. **Execute** seu primeiro deploy!
-
-## 📖 Documentação Completa
-
-Para informações detalhadas sobre arquitetura, funcionalidades avançadas, segurança, troubleshooting e casos de uso, consulte:
-
-### 📄 [`CONTEXTO_APLICACAO.md`](./CONTEXTO_APLICACAO.md)
-
-Este documento contém:
-- 🏗️ Arquitetura detalhada e estrutura de serviços
-- 🔧 Configurações avançadas e parâmetros
-- 🛡️ Medidas de segurança e validações
-- 📊 Sistema de metadados centralizados
-- 🔄 Fluxos de operação completos
-- 🎯 Casos de uso práticos
-- 🚨 Troubleshooting e soluções
-- 🔮 Pontos de extensão e melhorias futuras
+Veja detalhes, exemplos avançados e dicas em [`CONTEXTO_APLICACAO.md`](./CONTEXTO_APLICACAO.md).
 
 ---
 
-**Versão:** 3.0 | **Framework:** .NET 8.0 | **Licença:** MIT
-````
+**Versão:** 3.0 | **.NET:** 8.0 | **Licença:** MIT
+
+Desenvolvido por [EricCoisa](https://github.com/EricCoisa)
+
+---

@@ -6,9 +6,6 @@ import type { Publication } from '../../../store/publications/types';
 interface ProjectCardProps {
   publication: Publication;
   onEdit?: (publication: Publication) => void;
-  onDelete?: (name: string) => void;
-  onDeleteMetadataOnly?: (name: string) => void;
-  onUpdateMetadata?: (publication: Publication) => void;
   onReDeploy?: (publication: Publication) => void;
 }
 
@@ -123,9 +120,6 @@ const ProjectTypeTag = styled.span<{ isSubProject: boolean }>`
 export const ProjectCard: React.FC<ProjectCardProps> = ({
   publication,
   onEdit,
-  onDelete,
-  onDeleteMetadataOnly,
-  onUpdateMetadata,
   onReDeploy
 }) => {
   const getStatusText = () => {
@@ -182,9 +176,15 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
         </InfoSection>
 
         <InfoSection>
-          <InfoLabel>Comando Build</InfoLabel>
-          <InfoValue className={!publication.buildCommand ? 'empty' : ''}>
-            {publication.buildCommand || 'Não configurado'}
+          <InfoLabel>Comandos Build</InfoLabel>
+          <InfoValue className={!publication.buildCommand?.length ? 'empty' : ''}>
+            {Array.isArray(publication.buildCommand) && publication.buildCommand.length > 0
+              ? publication.buildCommand.map((cmd, index) => (
+                  <div key={index}>
+                    {cmd.comando} (Terminal: {cmd.terminalId})
+                  </div>
+                ))
+              : 'Não configurado'}
           </InfoValue>
         </InfoSection>
 
@@ -222,43 +222,13 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
           </Button>
         )}
 
-        {publication.hasMetadata && onUpdateMetadata && (
-          <Button
-            size="small"
-            variant="secondary"
-            onClick={() => onUpdateMetadata(publication)}
-          >
-            Editar Metadados
-          </Button>
-        )}
-
-        {onEdit && (
+        {!isActive() && onEdit && (
           <Button
             size="small"
             variant="secondary"
             onClick={() => onEdit(publication)}
           >
-            Editar
-          </Button>
-        )}
-
-        {publication.hasMetadata && onDeleteMetadataOnly && (
-          <Button
-            size="small"
-            variant="secondary"
-            onClick={() => onDeleteMetadataOnly(publication.name)}
-          >
-            Remover Metadados
-          </Button>
-        )}
-
-        {onDelete && (
-          <Button
-            size="small"
-            variant="danger"
-            onClick={() => onDelete(publication.name)}
-          >
-            Excluir Completamente
+            ⚙️ Configurar Deploy
           </Button>
         )}
       </ButtonGroup>

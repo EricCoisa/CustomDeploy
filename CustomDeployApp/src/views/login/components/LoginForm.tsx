@@ -51,8 +51,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     if (!formData.password) {
       errors.password = 'Senha é obrigatória';
       isValid = false;
-    } else if (formData.password.length < 6) {
-      errors.password = 'Senha deve ter pelo menos 6 caracteres';
+    } else if (formData.password.length < 1) {
+      errors.password = 'Senha deve ter pelo menos 12 caracteres';
       isValid = false;
     }
 

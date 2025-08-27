@@ -5,13 +5,12 @@ import { useAppDispatch, useAppSelector } from '../../store';
 import {
   fetchPublications,
   fetchPublicationsStats,
-  deletePublication,
-  deletePublicationMetadataOnly,
   clearErrors
 } from '../../store/publications/actions';
 import type { Publication } from '../../store/publications/types';
 import { toast } from 'react-toastify';
 import styled from 'styled-components';
+import { ConfigureDeployModal } from './components/ConfigureDeployModal';
 
 const ContentCard = styled.div`
   background: rgba(255, 255, 255, 0.95);
@@ -145,6 +144,14 @@ export const PublicationsView: React.FC = () => {
     publication: null
   });
 
+  const [configureDeployModal, setConfigureDeployModal] = useState<{
+    isOpen: boolean;
+    publication: Publication | null;
+  }>({
+    isOpen: false,
+    publication: null
+  });
+
   useEffect(() => {
     // Carregar dados ao montar o componente
     dispatch(fetchPublications());
@@ -176,34 +183,32 @@ export const PublicationsView: React.FC = () => {
   };
 
   const handleEditPublication = (publication: Publication) => {
-    // TODO: Implementar modal de edição
-    console.log('Edit publication:', publication);
+    setConfigureDeployModal({
+      isOpen: true,
+      publication
+    });
   };
 
-  const handleUpdateMetadata = (publication: Publication) => {
-    // TODO: Implementar modal de atualização de metadados
-    console.log('Update metadata:', publication);
+  const handleConfigureDeployModalClose = () => {
+    setConfigureDeployModal({
+      isOpen: false,
+      publication: null
+    });
   };
 
-  const handleDeletePublication = async (name: string) => {
-    if (window.confirm(`Tem certeza que deseja excluir completamente a publicação "${name}"? Esta ação não pode ser desfeita.`)) {
-      const result = await dispatch(deletePublication(name));
-      if (result.meta.requestStatus === 'fulfilled') {
-        // Atualizar estatísticas após exclusão
-        dispatch(fetchPublicationsStats());
-      }
-    }
+  const handleConfigureDeploySuccess = (result: Record<string, unknown>) => {
+    toast.success(`Configuração salva com sucesso! ${result.message || ''}`);
+    handleConfigureDeployModalClose();
+    // Atualizar dados após configuração bem-sucedida
+    dispatch(fetchPublications());
+    dispatch(fetchPublicationsStats());
   };
 
-  const handleDeleteMetadataOnly = async (name: string) => {
-    if (window.confirm(`Tem certeza que deseja remover apenas os metadados da publicação "${name}"? A pasta física será mantida.`)) {
-      const result = await dispatch(deletePublicationMetadataOnly(name));
-      if (result.meta.requestStatus === 'fulfilled') {
-        // Atualizar estatísticas após remoção de metadados
-        dispatch(fetchPublicationsStats());
-      }
-    }
+  const handleConfigureDeployError = (error: string) => {
+    toast.error(`Erro ao salvar configuração: ${error}`);
   };
+
+
 
   const handleReDeploy = (publication: Publication) => {
     setReDeployModal({
@@ -322,9 +327,6 @@ export const PublicationsView: React.FC = () => {
               key={publication.name}
               publication={publication}
               onEdit={handleEditPublication}
-              onUpdateMetadata={handleUpdateMetadata}
-              onDelete={handleDeletePublication}
-              onDeleteMetadataOnly={handleDeleteMetadataOnly}
               onReDeploy={handleReDeploy}
             />
           ))
@@ -360,6 +362,17 @@ export const PublicationsView: React.FC = () => {
           onClose={handleReDeployModalClose}
           onSuccess={handleReDeploySuccess}
           onError={handleReDeployError}
+        />
+      )}
+
+      {/* Modal de Configuração de Deploy */}
+      {configureDeployModal.publication && (
+        <ConfigureDeployModal
+          publication={configureDeployModal.publication}
+          isOpen={configureDeployModal.isOpen}
+          onClose={handleConfigureDeployModalClose}
+          onSuccess={handleConfigureDeploySuccess}
+          onError={handleConfigureDeployError}
         />
       )}
     </ProtectedLayout>
